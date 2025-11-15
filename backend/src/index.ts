@@ -19,19 +19,27 @@ const PORT = process.env.PORT || 9501;
 app.use(helmet());
 app.use(cors({
   origin: (origin, callback) => {
-    // Allow requests from port 9500 on any host (localhost, local IP, etc.)
+    // Allow requests from various sources
     const allowedOrigins = [
       'http://localhost:9500',
+      'http://localhost:3000',
       /^http:\/\/10\.\d+\.\d+\.\d+:9500$/,  // Local network IPs
       /^http:\/\/192\.168\.\d+\.\d+:9500$/,  // Common local network
       /^http:\/\/172\.\d+\.\d+\.\d+:9500$/,  // Docker network
+      /^https:\/\/.*\.vercel\.app$/,  // All Vercel deployments
     ];
+
+    // Add production frontend URL from environment variable
+    if (process.env.FRONTEND_URL) {
+      allowedOrigins.push(process.env.FRONTEND_URL);
+    }
 
     if (!origin || allowedOrigins.some(allowed =>
       typeof allowed === 'string' ? allowed === origin : allowed.test(origin)
     )) {
       callback(null, true);
     } else {
+      console.warn(`CORS blocked origin: ${origin}`);
       callback(new Error('Not allowed by CORS'));
     }
   },

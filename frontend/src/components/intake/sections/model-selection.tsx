@@ -45,7 +45,8 @@ export function ModelSelectionSection({ data, onChange }: ModelSelectionProps) {
 
     try {
       // Call backend API to fetch metadata
-      const response = await fetch('http://localhost:9501/api/models/fetch-metadata', {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:9501'
+      const response = await fetch(`${apiUrl}/api/models/fetch-metadata`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
