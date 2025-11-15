@@ -40,11 +40,11 @@ Railway will provide these environment variables automatically:
 
 ### Step 2: Configure Build Settings
 
-Railway should auto-detect the Dockerfile. If not:
+Railway will use the `railway.json` configuration file automatically. The project includes:
+- `Dockerfile.railway` - Optimized for deploying backend from monorepo root
+- `railway.json` - Build configuration pointing to the Dockerfile
 
-1. Go to **Settings** → **Build**
-2. Set **Root Directory**: `backend`
-3. Set **Dockerfile Path**: `backend/Dockerfile`
+**No manual configuration needed** - Railway will auto-detect these files and build correctly.
 
 ### Step 3: Set Environment Variables
 
@@ -111,11 +111,16 @@ npm run seed
 
 ### Step 2: Configure Build Settings
 
+Vercel will use the `vercel.json` configuration file automatically. The project includes:
+- `vercel.json` - Build configuration for deploying frontend from monorepo
+
+**No manual configuration needed** - Vercel will auto-detect the configuration.
+
+If you need to override settings manually:
 - **Framework Preset**: Next.js
-- **Root Directory**: `frontend`
-- **Build Command**: `npm run build` (default)
-- **Output Directory**: `.next` (default)
-- **Install Command**: `npm install` (default)
+- **Build Command**: `cd frontend && npm install && npm run build`
+- **Output Directory**: `frontend/.next`
+- **Install Command**: `cd frontend && npm install`
 - **Node Version**: 20.x
 
 ### Step 3: Set Environment Variables
@@ -243,6 +248,19 @@ Railway automatically backs up your PostgreSQL database. To restore or download:
 - Check backend logs on Railway
 - Verify axios is installed (should be in package.json)
 - Test the `/api/models/fetch-metadata` endpoint directly
+
+### Build fails with "command not found" errors (tsc, next)
+- **Problem**: Monorepo dependencies not installing correctly
+- **Solution**: Use the provided `Dockerfile.railway` and `vercel.json` configurations
+- **Railway**: Ensure `railway.json` points to `Dockerfile.railway`
+- **Vercel**: Ensure `vercel.json` has correct build commands
+- These files are already configured - just commit and push to GitHub
+
+### Railway build fails at npm run build
+- **Problem**: Trying to build workspaces from root
+- **Solution**: The `Dockerfile.railway` copies only backend files, avoiding workspace issues
+- **Verify**: Check Railway logs show "COPY backend/ ./" step
+- **Fix**: Make sure latest code from GitHub is deployed
 
 ---
 
