@@ -6,6 +6,9 @@ import rateLimit from 'express-rate-limit';
 import submissionsRouter from './routes/submissions';
 import uploadsRouter from './routes/uploads';
 import referenceRouter from './routes/reference';
+import policiesRouter from './routes/policies';
+import governanceRouter from './routes/governance';
+import modelsRouter from './routes/models';
 
 dotenv.config();
 
@@ -15,7 +18,23 @@ const PORT = process.env.PORT || 9501;
 // Security middleware
 app.use(helmet());
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:9500',
+  origin: (origin, callback) => {
+    // Allow requests from port 9500 on any host (localhost, local IP, etc.)
+    const allowedOrigins = [
+      'http://localhost:9500',
+      /^http:\/\/10\.\d+\.\d+\.\d+:9500$/,  // Local network IPs
+      /^http:\/\/192\.168\.\d+\.\d+:9500$/,  // Common local network
+      /^http:\/\/172\.\d+\.\d+\.\d+:9500$/,  // Docker network
+    ];
+
+    if (!origin || allowedOrigins.some(allowed =>
+      typeof allowed === 'string' ? allowed === origin : allowed.test(origin)
+    )) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   credentials: true,
 }));
 
@@ -40,6 +59,9 @@ app.get('/health', (req: Request, res: Response) => {
 app.use('/api/submissions', submissionsRouter);
 app.use('/api/uploads', uploadsRouter);
 app.use('/api/reference', referenceRouter);
+app.use('/api/policies', policiesRouter);
+app.use('/api/governance', governanceRouter);
+app.use('/api/models', modelsRouter);
 
 // Error handling middleware
 app.use((err: any, req: Request, res: Response, next: any) => {

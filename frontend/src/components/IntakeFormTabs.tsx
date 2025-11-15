@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Loader2, CheckCircle } from 'lucide-react'
+import { Loader2, CheckCircle, Upload, FileText, X, Shield } from 'lucide-react'
 
 interface IntakeFormTabsProps {
   onSubmit: (data: any) => Promise<void>
@@ -49,6 +49,7 @@ export default function IntakeFormTabs({ onSubmit, isSubmitting }: IntakeFormTab
     // Section 5
     deployment_location: '',
     deployment_location_other: '',
+    cloud_provider: '',
     access_teams: '',
     input_format: '',
     output_format: '',
@@ -58,6 +59,13 @@ export default function IntakeFormTabs({ onSubmit, isSubmitting }: IntakeFormTab
     safety_features: [] as string[],
     known_risks: '',
   })
+
+  // File upload state
+  const [uploadedFiles, setUploadedFiles] = useState<any[]>([])
+  const [uploadProgress, setUploadProgress] = useState<{ [key: string]: number }>({})
+
+  // Filtered models state (for cascading dropdown based on model_type)
+  const [filteredModels, setFilteredModels] = useState<any[]>([])
 
   useEffect(() => {
     // Fetch reference data
@@ -71,18 +79,80 @@ export default function IntakeFormTabs({ onSubmit, isSubmitting }: IntakeFormTab
       .catch(err => console.error('Failed to fetch reference data:', err))
   }, [])
 
+  // Fetch filtered models when model_type or model_origin changes
+  useEffect(() => {
+    const fetchFilteredModels = async () => {
+      if (!formData.model_type || !formData.model_origin) {
+        setFilteredModels([])
+        return
+      }
+
+      const category = formData.model_origin === 'vendor' ? 'vendor' :
+                      formData.model_origin === 'open_source' ? 'open_source' : null
+
+      if (!category) {
+        setFilteredModels([])
+        return
+      }
+
+      try {
+        const params = new URLSearchParams()
+        params.append('type', formData.model_type)
+        params.append('category', category)
+
+        const response = await fetch(
+          `${process.env.NEXT_PUBLIC_API_URL}/api/reference/models?${params.toString()}`
+        )
+        const data = await response.json()
+
+        if (data.success) {
+          setFilteredModels(data.models)
+        }
+      } catch (error) {
+        console.error('Failed to fetch filtered models:', error)
+      }
+    }
+
+    fetchFilteredModels()
+  }, [formData.model_type, formData.model_origin])
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    await onSubmit(formData)
+    // Include uploaded file IDs in submission
+    const submissionData = {
+      ...formData,
+      artifacts: uploadedFiles.map(f => f.id)
+    }
+    await onSubmit(submissionData)
   }
 
   const handleCheckboxChange = (field: 'regulated_decisions' | 'modifications' | 'safety_features', value: string) => {
-    setFormData(prev => ({
-      ...prev,
-      [field]: prev[field].includes(value)
-        ? prev[field].filter((item: string) => item !== value)
-        : [...prev[field], value]
-    }))
+    setFormData(prev => {
+      let newArray: string[]
+
+      // Special handling for "None of the above" - make it mutually exclusive
+      if (field === 'regulated_decisions') {
+        if (value === 'None of the above') {
+          // If clicking "None of the above", clear all other selections
+          newArray = prev[field].includes(value) ? [] : ['None of the above']
+        } else {
+          // If clicking any other option, remove "None of the above" if present
+          newArray = prev[field].includes(value)
+            ? prev[field].filter((item: string) => item !== value)
+            : [...prev[field].filter((item: string) => item !== 'None of the above'), value]
+        }
+      } else {
+        // Standard toggle for other fields
+        newArray = prev[field].includes(value)
+          ? prev[field].filter((item: string) => item !== value)
+          : [...prev[field], value]
+      }
+
+      return {
+        ...prev,
+        [field]: newArray
+      }
+    })
   }
 
   const markSectionComplete = (section: string) => {
@@ -95,10 +165,48 @@ export default function IntakeFormTabs({ onSubmit, isSubmitting }: IntakeFormTab
     setCurrentTab(nextSection)
   }
 
+  const handleFileUpload = async (file: File, artifactType: string, description: string) => {
+    const formData = new FormData()
+    formData.append('file', file)
+    formData.append('artifactType', artifactType)
+    formData.append('description', description)
+
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/uploads`, {
+        method: 'POST',
+        body: formData,
+      })
+
+      if (!response.ok) {
+        throw new Error('Upload failed')
+      }
+
+      const result = await response.json()
+
+      setUploadedFiles(prev => [...prev, {
+        id: result.artifactId,
+        file_name: file.name,
+        file_path: result.filePath,
+        file_type: file.type,
+        artifact_type: artifactType,
+        description: description,
+      }])
+
+      return result
+    } catch (error) {
+      console.error('File upload error:', error)
+      throw error
+    }
+  }
+
+  const removeUploadedFile = (fileId: number) => {
+    setUploadedFiles(prev => prev.filter(f => f.id !== fileId))
+  }
+
   return (
     <form onSubmit={handleSubmit}>
       <Tabs value={currentTab} onValueChange={setCurrentTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-6 mb-6">
+        <TabsList className="grid w-full grid-cols-7 mb-6">
           <TabsTrigger value="section1" className="relative">
             {completedSections.includes('section1') && (
               <CheckCircle className="w-4 h-4 absolute top-1 right-1 text-green-600" />
@@ -135,6 +243,12 @@ export default function IntakeFormTabs({ onSubmit, isSubmitting }: IntakeFormTab
             )}
             6. Safety
           </TabsTrigger>
+          <TabsTrigger value="section7">
+            {completedSections.includes('section7') && (
+              <CheckCircle className="w-4 h-4 absolute top-1 right-1 text-green-600" />
+            )}
+            7. Files
+          </TabsTrigger>
         </TabsList>
 
         {/* Section 1: Project & Model Overview */}
@@ -144,6 +258,28 @@ export default function IntakeFormTabs({ onSubmit, isSubmitting }: IntakeFormTab
               <CardTitle>Section 1 — Project & Model Overview</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
+              {/* FIRST QUESTION: Is this COTS, OSS, or Homegrown? */}
+              <div className="bg-blue-50 border-2 border-blue-200 rounded-lg p-4">
+                <Label htmlFor="model_origin" className="text-lg font-semibold">
+                  Is this a COTS tool, Open Source, or Homegrown? *
+                </Label>
+                <p className="text-sm text-gray-600 mt-1 mb-3">
+                  Please select how you're obtaining this AI/ML model
+                </p>
+                <select
+                  id="model_origin"
+                  required
+                  className="w-full p-3 border-2 border-blue-300 rounded-md text-base"
+                  value={formData.model_origin}
+                  onChange={(e) => setFormData({ ...formData, model_origin: e.target.value })}
+                >
+                  <option value="">Select model origin...</option>
+                  <option value="vendor">COTS - Vendor-provided model (e.g., OpenAI, Anthropic, AWS)</option>
+                  <option value="open_source">Open Source - Using an open-source model (e.g., Llama, Mistral)</option>
+                  <option value="in_house">Homegrown - In-house trained foundation model</option>
+                </select>
+              </div>
+
               <div className="grid md:grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="project_name">Project Name *</Label>
@@ -158,15 +294,15 @@ export default function IntakeFormTabs({ onSubmit, isSubmitting }: IntakeFormTab
                 </div>
 
                 <div>
-                  <Label htmlFor="model_name">Your Model/System Name *</Label>
+                  <Label htmlFor="model_name">Your Internal System Name *</Label>
                   <Input
                     id="model_name"
                     required
                     value={formData.model_name}
                     onChange={(e) => setFormData({ ...formData, model_name: e.target.value })}
-                    placeholder="e.g., credit-risk-scorer-v2"
+                    placeholder="e.g., fraud-detector-prod, support-bot-v2"
                   />
-                  <p className="text-xs text-gray-500 mt-1">Your internal model identifier (e.g., fraud-detector-prod, customer-chatbot-v1)</p>
+                  <p className="text-xs text-gray-500 mt-1">What you call this deployment internally (not the base model name)</p>
                 </div>
               </div>
 
@@ -203,55 +339,211 @@ export default function IntakeFormTabs({ onSubmit, isSubmitting }: IntakeFormTab
                 </div>
               )}
 
-              <div>
-                <Label htmlFor="model_origin">Model Origin *</Label>
-                <select
-                  id="model_origin"
-                  required
-                  className="w-full p-2 border rounded-md"
-                  value={formData.model_origin}
-                  onChange={(e) => setFormData({ ...formData, model_origin: e.target.value })}
-                >
-                  <option value="">Select origin</option>
-                  <option value="open_source">Open-source model</option>
-                  <option value="vendor">Vendor-provided model (COTS)</option>
-                  <option value="in_house">In-house trained foundation model</option>
-                </select>
-              </div>
-
               {formData.model_origin === 'vendor' && (
-                <div>
-                  <Label htmlFor="vendor_name">Vendor/Provider Name *</Label>
-                  <Input
-                    id="vendor_name"
-                    value={formData.vendor_name}
-                    onChange={(e) => setFormData({ ...formData, vendor_name: e.target.value })}
-                    placeholder="Start typing to see suggestions..."
-                    list="vendor-suggestions"
-                  />
-                  {referenceData && (
-                    <>
-                      <datalist id="vendor-suggestions">
-                        {referenceData.vendors.map((vendor: any) => (
-                          <option key={vendor.id} value={vendor.name} />
-                        ))}
-                      </datalist>
-                      <div className="mt-2 text-xs text-gray-600">
-                        <p className="font-medium mb-1">Common vendors:</p>
-                        <div className="flex flex-wrap gap-1">
-                          {referenceData.vendors.slice(0, 8).map((vendor: any) => (
-                            <button
-                              key={vendor.id}
-                              type="button"
-                              className="px-2 py-1 bg-blue-100 hover:bg-blue-200 rounded text-xs"
-                              onClick={() => setFormData({ ...formData, vendor_name: vendor.name })}
-                            >
-                              {vendor.name}
-                            </button>
+                <div className="space-y-3">
+                  <div>
+                    <Label htmlFor="vendor_name">Vendor/Provider Name *</Label>
+                    <Input
+                      id="vendor_name"
+                      value={formData.vendor_name}
+                      onChange={(e) => setFormData({ ...formData, vendor_name: e.target.value })}
+                      placeholder="Start typing to see suggestions..."
+                      list="vendor-suggestions"
+                    />
+                    {referenceData && (
+                      <>
+                        <datalist id="vendor-suggestions">
+                          {referenceData.vendors.map((vendor: any) => (
+                            <option key={vendor.id} value={vendor.name} />
                           ))}
+                        </datalist>
+                        <div className="mt-2 text-xs text-gray-600">
+                          <p className="font-medium mb-1">Common vendors:</p>
+                          <div className="flex flex-wrap gap-1">
+                            {referenceData.vendors.slice(0, 8).map((vendor: any) => (
+                              <button
+                                key={vendor.id}
+                                type="button"
+                                className="px-2 py-1 bg-blue-100 hover:bg-blue-200 rounded text-xs"
+                                onClick={() => setFormData({ ...formData, vendor_name: vendor.name })}
+                              >
+                                {vendor.name}
+                              </button>
+                            ))}
+                          </div>
                         </div>
+                      </>
+                    )}
+                  </div>
+
+                  <div className="grid md:grid-cols-3 gap-4">
+                    <div>
+                      <Label htmlFor="model_origin_name">Base Model Name</Label>
+                      <Input
+                        id="model_origin_name"
+                        value={formData.model_origin_name}
+                        onChange={(e) => {
+                          const selectedName = e.target.value
+                          setFormData({ ...formData, model_origin_name: selectedName })
+                        }}
+                        onBlur={(e) => {
+                          // Auto-fill version, URL, and Section 2 fields when field loses focus
+                          const selectedName = e.target.value
+                          if (referenceData && referenceData.models) {
+                            const matchedModel = referenceData.models.find(
+                              (m: any) => m.category === 'vendor' && m.name === selectedName
+                            )
+                            if (matchedModel) {
+                              let docUrl = matchedModel.documentation_url || ''
+                              if (!docUrl) {
+                                if (matchedModel.vendor === 'OpenAI') {
+                                  docUrl = 'https://platform.openai.com/docs/models'
+                                } else if (matchedModel.vendor === 'Anthropic') {
+                                  docUrl = 'https://docs.anthropic.com/en/docs/models-overview'
+                                } else if (matchedModel.vendor === 'Google') {
+                                  docUrl = 'https://ai.google.dev/models/gemini'
+                                } else if (matchedModel.vendor === 'AWS') {
+                                  docUrl = 'https://aws.amazon.com/bedrock/'
+                                } else if (matchedModel.vendor === 'Microsoft Azure') {
+                                  docUrl = 'https://azure.microsoft.com/en-us/products/ai-services/openai-service'
+                                }
+                              }
+
+                              // Auto-populate Section 2 fields if available
+                              const intendedPurpose = matchedModel.use_cases || formData.intended_purpose
+
+                              // Infer business impact from model type
+                              let businessImpact = formData.business_impact_category
+                              if (!businessImpact) {
+                                if (matchedModel.type === 'fraud_detection' || matchedModel.use_cases?.toLowerCase().includes('fraud')) {
+                                  businessImpact = 'high'
+                                } else if (matchedModel.type === 'llm' || matchedModel.type === 'multimodal') {
+                                  businessImpact = 'medium'
+                                } else if (matchedModel.type === 'embedding' || matchedModel.type === 'classification') {
+                                  businessImpact = 'low'
+                                } else {
+                                  // Default to medium if we can't infer
+                                  businessImpact = 'medium'
+                                }
+                              }
+
+                              setFormData({
+                                ...formData,
+                                vendor_name: matchedModel.vendor,
+                                model_origin_name: matchedModel.name,
+                                model_origin_version: matchedModel.version,
+                                model_origin_url: docUrl,
+                                intended_purpose: intendedPurpose,
+                                business_impact_category: businessImpact
+                              })
+                            }
+                          }
+                        }}
+                        placeholder="e.g., GPT-4o, Claude 3.5"
+                        list="vendor-model-suggestions"
+                      />
+                      {referenceData && (
+                        <datalist id="vendor-model-suggestions">
+                          {(filteredModels.length > 0 ? filteredModels : referenceData.models.filter((m: any) => m.category === 'vendor'))
+                            .map((model: any) => (
+                              <option key={model.id} value={model.name} />
+                            ))}
+                        </datalist>
+                      )}
+                    </div>
+                    <div>
+                      <Label htmlFor="model_origin_version">Version/Model ID</Label>
+                      <Input
+                        id="model_origin_version"
+                        value={formData.model_origin_version}
+                        onChange={(e) => setFormData({ ...formData, model_origin_version: e.target.value })}
+                        placeholder="e.g., gpt-4o, claude-3-5-sonnet"
+                        list="vendor-version-suggestions"
+                      />
+                      {referenceData && (
+                        <datalist id="vendor-version-suggestions">
+                          {(filteredModels.length > 0 ? filteredModels : referenceData.models.filter((m: any) => m.category === 'vendor'))
+                            .map((model: any) => (
+                              <option key={model.id} value={model.version} />
+                            ))}
+                        </datalist>
+                      )}
+                    </div>
+                    <div>
+                      <Label htmlFor="model_origin_url">Documentation URL</Label>
+                      <Input
+                        id="model_origin_url"
+                        type="url"
+                        value={formData.model_origin_url}
+                        onChange={(e) => setFormData({ ...formData, model_origin_url: e.target.value })}
+                        placeholder="https://..."
+                      />
+                    </div>
+                  </div>
+
+                  {referenceData && referenceData.models && (
+                    <div className="text-xs text-gray-600">
+                      <p className="font-medium mb-1">
+                        {filteredModels.length > 0
+                          ? `Click to auto-fill ${formData.model_type.toUpperCase()} models:`
+                          : 'Click to auto-fill popular COTS models:'}
+                      </p>
+                      <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                        {(filteredModels.length > 0 ? filteredModels : referenceData.models.filter((m: any) => m.category === 'vendor'))
+                          .slice(0, 12)
+                          .map((model: any) => {
+                            // Determine documentation URL based on vendor
+                            let docUrl = ''
+                            if (model.vendor === 'OpenAI') {
+                              docUrl = 'https://platform.openai.com/docs/models'
+                            } else if (model.vendor === 'Anthropic') {
+                              docUrl = 'https://docs.anthropic.com/en/docs/models-overview'
+                            } else if (model.vendor === 'Google') {
+                              docUrl = 'https://ai.google.dev/models/gemini'
+                            } else if (model.vendor === 'AWS') {
+                              docUrl = 'https://aws.amazon.com/bedrock/'
+                            } else if (model.vendor === 'Microsoft Azure') {
+                              docUrl = 'https://azure.microsoft.com/en-us/products/ai-services/openai-service'
+                            }
+
+                            // Auto-populate Section 2 fields
+                            const intendedPurpose = model.use_cases || formData.intended_purpose
+                            let businessImpact = formData.business_impact_category
+                            if (!businessImpact) {
+                              if (model.type === 'fraud_detection' || model.use_cases?.toLowerCase().includes('fraud')) {
+                                businessImpact = 'high'
+                              } else if (model.type === 'llm' || model.type === 'multimodal') {
+                                businessImpact = 'medium'
+                              } else if (model.type === 'embedding' || model.type === 'classification') {
+                                businessImpact = 'low'
+                              } else {
+                                // Default to medium if we can't infer
+                                businessImpact = 'medium'
+                              }
+                            }
+
+                            return (
+                              <button
+                                key={model.id}
+                                type="button"
+                                className="px-3 py-2 bg-green-50 hover:bg-green-100 border border-green-200 rounded text-xs text-left"
+                                onClick={() => setFormData({
+                                  ...formData,
+                                  vendor_name: model.vendor,
+                                  model_origin_name: model.name,
+                                  model_origin_version: model.version,
+                                  model_origin_url: docUrl,
+                                  intended_purpose: intendedPurpose,
+                                  business_impact_category: businessImpact
+                                })}
+                              >
+                                <div className="font-semibold text-green-900">{model.name}</div>
+                                <div className="text-green-600 text-[10px]">{model.vendor}</div>
+                              </button>
+                            )
+                          })}
                       </div>
-                    </>
+                    </div>
                   )}
                 </div>
               )}
@@ -264,14 +556,72 @@ export default function IntakeFormTabs({ onSubmit, isSubmitting }: IntakeFormTab
                       <Input
                         id="model_origin_name"
                         value={formData.model_origin_name}
-                        onChange={(e) => setFormData({ ...formData, model_origin_name: e.target.value })}
+                        onChange={(e) => {
+                          const selectedName = e.target.value
+                          setFormData({ ...formData, model_origin_name: selectedName })
+                        }}
+                        onBlur={(e) => {
+                          // Auto-fill version, URL, and Section 2 fields when field loses focus
+                          const selectedName = e.target.value
+                          if (referenceData && referenceData.models) {
+                            const matchedModel = referenceData.models.find(
+                              (m: any) => m.category === 'open_source' && m.name === selectedName
+                            )
+                            if (matchedModel) {
+                              let sourceUrl = matchedModel.documentation_url || ''
+                              if (!sourceUrl) {
+                                if (matchedModel.vendor === 'Meta') {
+                                  sourceUrl = `https://huggingface.co/meta-llama/${matchedModel.version}`
+                                } else if (matchedModel.vendor === 'Mistral AI') {
+                                  sourceUrl = `https://huggingface.co/mistralai/${matchedModel.version}`
+                                } else if (matchedModel.vendor === 'Google') {
+                                  sourceUrl = `https://huggingface.co/google/${matchedModel.version}`
+                                } else if (matchedModel.vendor === 'Microsoft') {
+                                  sourceUrl = `https://huggingface.co/microsoft/${matchedModel.version}`
+                                } else if (matchedModel.vendor === 'Alibaba') {
+                                  sourceUrl = `https://huggingface.co/Qwen/${matchedModel.version}`
+                                } else if (matchedModel.vendor === 'Databricks') {
+                                  sourceUrl = `https://huggingface.co/databricks/${matchedModel.version}`
+                                } else {
+                                  sourceUrl = `https://huggingface.co/${matchedModel.version}`
+                                }
+                              }
+
+                              // Auto-populate Section 2 fields if available
+                              const intendedPurpose = matchedModel.use_cases || formData.intended_purpose
+
+                              // Infer business impact from model type
+                              let businessImpact = formData.business_impact_category
+                              if (!businessImpact) {
+                                if (matchedModel.type === 'fraud_detection' || matchedModel.use_cases?.toLowerCase().includes('fraud')) {
+                                  businessImpact = 'high'
+                                } else if (matchedModel.type === 'llm' || matchedModel.type === 'multimodal') {
+                                  businessImpact = 'medium'
+                                } else if (matchedModel.type === 'embedding' || matchedModel.type === 'classification') {
+                                  businessImpact = 'low'
+                                } else {
+                                  // Default to medium if we can't infer
+                                  businessImpact = 'medium'
+                                }
+                              }
+
+                              setFormData({
+                                ...formData,
+                                model_origin_name: matchedModel.name,
+                                model_origin_version: matchedModel.version,
+                                model_origin_url: sourceUrl,
+                                intended_purpose: intendedPurpose,
+                                business_impact_category: businessImpact
+                              })
+                            }
+                          }
+                        }}
                         placeholder="e.g., Llama 2, Mistral"
                         list="opensource-model-suggestions"
                       />
                       {referenceData && (
                         <datalist id="opensource-model-suggestions">
-                          {referenceData.models
-                            .filter((m: any) => m.category === 'open_source')
+                          {(filteredModels.length > 0 ? filteredModels : referenceData.models.filter((m: any) => m.category === 'open_source'))
                             .map((model: any) => (
                               <option key={model.id} value={model.name} />
                             ))}
@@ -285,7 +635,16 @@ export default function IntakeFormTabs({ onSubmit, isSubmitting }: IntakeFormTab
                         value={formData.model_origin_version}
                         onChange={(e) => setFormData({ ...formData, model_origin_version: e.target.value })}
                         placeholder="e.g., 70B, 7B-Instruct"
+                        list="opensource-version-suggestions"
                       />
+                      {referenceData && (
+                        <datalist id="opensource-version-suggestions">
+                          {(filteredModels.length > 0 ? filteredModels : referenceData.models.filter((m: any) => m.category === 'open_source'))
+                            .map((model: any) => (
+                              <option key={model.id} value={model.version} />
+                            ))}
+                        </datalist>
+                      )}
                     </div>
                     <div>
                       <Label htmlFor="model_origin_url">Source URL</Label>
@@ -300,20 +659,41 @@ export default function IntakeFormTabs({ onSubmit, isSubmitting }: IntakeFormTab
                   </div>
                   {referenceData && referenceData.models && (
                     <div className="text-xs text-gray-600">
-                      <p className="font-medium mb-1">Click to auto-fill:</p>
+                      <p className="font-medium mb-1">
+                        {filteredModels.length > 0
+                          ? `Click to auto-fill ${formData.model_type.toUpperCase()} open source models:`
+                          : 'Click to auto-fill:'}
+                      </p>
                       <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                        {referenceData.models
-                          .filter((m: any) => m.category === 'open_source')
+                        {(filteredModels.length > 0 ? filteredModels : referenceData.models.filter((m: any) => m.category === 'open_source'))
                           .slice(0, 12)
                           .map((model: any) => {
                             // Determine source URL based on vendor/model
-                            let sourceUrl = formData.model_origin_url
-                            if (model.vendor === 'Meta') {
-                              sourceUrl = `https://huggingface.co/meta-llama/${model.version}`
-                            } else if (model.vendor === 'Mistral AI') {
-                              sourceUrl = `https://huggingface.co/mistralai/${model.version}`
-                            } else if (model.vendor === 'Hugging Face' || model.vendor === 'Open Source') {
-                              sourceUrl = `https://huggingface.co/${model.version}`
+                            let sourceUrl = model.documentation_url || formData.model_origin_url
+                            if (!sourceUrl) {
+                              if (model.vendor === 'Meta') {
+                                sourceUrl = `https://huggingface.co/meta-llama/${model.version}`
+                              } else if (model.vendor === 'Mistral AI') {
+                                sourceUrl = `https://huggingface.co/mistralai/${model.version}`
+                              } else if (model.vendor === 'Hugging Face' || model.vendor === 'Open Source') {
+                                sourceUrl = `https://huggingface.co/${model.version}`
+                              }
+                            }
+
+                            // Auto-populate Section 2 fields
+                            const intendedPurpose = model.use_cases || formData.intended_purpose
+                            let businessImpact = formData.business_impact_category
+                            if (!businessImpact) {
+                              if (model.type === 'fraud_detection' || model.use_cases?.toLowerCase().includes('fraud')) {
+                                businessImpact = 'high'
+                              } else if (model.type === 'llm' || model.type === 'multimodal') {
+                                businessImpact = 'medium'
+                              } else if (model.type === 'embedding' || model.type === 'classification') {
+                                businessImpact = 'low'
+                              } else {
+                                // Default to medium if we can't infer
+                                businessImpact = 'medium'
+                              }
                             }
 
                             return (
@@ -325,7 +705,9 @@ export default function IntakeFormTabs({ onSubmit, isSubmitting }: IntakeFormTab
                                   ...formData,
                                   model_origin_name: model.name,
                                   model_origin_version: model.version,
-                                  model_origin_url: sourceUrl
+                                  model_origin_url: sourceUrl,
+                                  intended_purpose: intendedPurpose,
+                                  business_impact_category: businessImpact
                                 })}
                               >
                                 <div className="font-semibold text-blue-900">{model.name}</div>
@@ -336,6 +718,50 @@ export default function IntakeFormTabs({ onSubmit, isSubmitting }: IntakeFormTab
                       </div>
                     </div>
                   )}
+                </div>
+              )}
+
+              {formData.model_origin === 'in_house' && (
+                <div className="space-y-3">
+                  <div className="grid md:grid-cols-3 gap-4">
+                    <div>
+                      <Label htmlFor="model_origin_name">Base Model/Architecture Name</Label>
+                      <Input
+                        id="model_origin_name"
+                        value={formData.model_origin_name}
+                        onChange={(e) => setFormData({ ...formData, model_origin_name: e.target.value })}
+                        placeholder="e.g., Custom Transformer, BERT-based"
+                      />
+                      <p className="text-xs text-gray-500 mt-1">The base architecture or framework used</p>
+                    </div>
+                    <div>
+                      <Label htmlFor="model_origin_version">Version/Size</Label>
+                      <Input
+                        id="model_origin_version"
+                        value={formData.model_origin_version}
+                        onChange={(e) => setFormData({ ...formData, model_origin_version: e.target.value })}
+                        placeholder="e.g., v1.0, 124M parameters"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="model_origin_url">Repository/Documentation URL</Label>
+                      <Input
+                        id="model_origin_url"
+                        type="url"
+                        value={formData.model_origin_url}
+                        onChange={(e) => setFormData({ ...formData, model_origin_url: e.target.value })}
+                        placeholder="https://github.com/..."
+                      />
+                    </div>
+                  </div>
+                  <div className="bg-gray-50 border border-gray-200 rounded p-3 text-sm text-gray-700">
+                    <p className="font-medium mb-1">💡 For homegrown models, please provide:</p>
+                    <ul className="list-disc list-inside space-y-1 text-xs">
+                      <li>The base architecture (e.g., Transformer, CNN, RNN, or custom)</li>
+                      <li>Model version and size/parameter count if applicable</li>
+                      <li>Link to internal documentation, GitHub repo, or training specs</li>
+                    </ul>
+                  </div>
                 </div>
               )}
 
@@ -432,7 +858,20 @@ export default function IntakeFormTabs({ onSubmit, isSubmitting }: IntakeFormTab
               </div>
 
               <div>
-                <Label>System Used For:</Label>
+                <div className="flex justify-between items-center mb-2">
+                  <Label>System Used For:</Label>
+                  <button
+                    type="button"
+                    className="text-xs px-3 py-1 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded"
+                    onClick={() => {
+                      const allOptions = ['Regulated decisions', 'Credit decisions (ECOA/Reg B)', 'Fraud decisions (FFIEC, AML/BSA)',
+                        'Identity verification (KYC, CIP)', 'Customer eligibility'];
+                      setFormData({ ...formData, regulated_decisions: allOptions });
+                    }}
+                  >
+                    Select All
+                  </button>
+                </div>
                 <div className="grid md:grid-cols-2 gap-2 mt-2">
                   {['Regulated decisions', 'Credit decisions (ECOA/Reg B)', 'Fraud decisions (FFIEC, AML/BSA)',
                     'Identity verification (KYC, CIP)', 'Customer eligibility', 'None of the above'].map((option) => (
@@ -488,7 +927,21 @@ export default function IntakeFormTabs({ onSubmit, isSubmitting }: IntakeFormTab
                           key={source.id}
                           type="button"
                           className="px-2 py-1 bg-gray-100 hover:bg-gray-200 rounded text-xs"
-                          onClick={() => setFormData({ ...formData, data_sources: formData.data_sources + (formData.data_sources ? ', ' : '') + source.name })}
+                          onClick={() => {
+                            // Parse existing data sources (comma-separated)
+                            const existing = formData.data_sources
+                              .split(',')
+                              .map(s => s.trim().toLowerCase())
+                              .filter(s => s.length > 0)
+
+                            // Check if this source already exists
+                            if (!existing.includes(source.name.toLowerCase())) {
+                              setFormData({
+                                ...formData,
+                                data_sources: formData.data_sources + (formData.data_sources ? ', ' : '') + source.name
+                              })
+                            }
+                          }}
                         >
                           {source.name}
                         </button>
@@ -651,6 +1104,28 @@ export default function IntakeFormTabs({ onSubmit, isSubmitting }: IntakeFormTab
                 </div>
               )}
 
+              {formData.deployment_location === 'cloud_gpu' && (
+                <div>
+                  <Label htmlFor="cloud_provider">Specific Cloud Provider *</Label>
+                  <select
+                    id="cloud_provider"
+                    required
+                    className="w-full p-2 border rounded-md"
+                    value={formData.cloud_provider}
+                    onChange={(e) => setFormData({ ...formData, cloud_provider: e.target.value })}
+                  >
+                    <option value="">Select cloud provider</option>
+                    <option value="AWS">Amazon Web Services (AWS)</option>
+                    <option value="GCP">Google Cloud Platform (GCP)</option>
+                    <option value="Azure">Microsoft Azure</option>
+                  </select>
+                </div>
+              )}
+
+              {formData.cloud_provider && (
+                <CloudProviderDPA provider={formData.cloud_provider} />
+              )}
+
               {formData.deployment_location === 'other' && (
                 <div>
                   <Label htmlFor="deployment_location_other">Specify Deployment Location</Label>
@@ -761,6 +1236,39 @@ export default function IntakeFormTabs({ onSubmit, isSubmitting }: IntakeFormTab
                 <Button type="button" variant="outline" onClick={() => setCurrentTab('section5')}>
                   ← Back
                 </Button>
+                <Button type="button" onClick={() => { markSectionComplete('section6'); goToNextSection('section7'); }}>
+                  Next: Files →
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Section 7: Artifacts & Documentation */}
+        <TabsContent value="section7">
+          <Card>
+            <CardHeader>
+              <CardTitle>Section 7 — Artifacts & Documentation (Optional)</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+                <p className="text-sm text-blue-900">
+                  Upload supporting documentation such as architecture diagrams, data flow diagrams, model cards,
+                  or other relevant documents. These help reviewers better understand your submission.
+                </p>
+              </div>
+
+              {/* File Upload Area */}
+              <FileUploadSection
+                onUpload={handleFileUpload}
+                uploadedFiles={uploadedFiles}
+                onRemove={removeUploadedFile}
+              />
+
+              <div className="flex justify-between pt-4 border-t">
+                <Button type="button" variant="outline" onClick={() => setCurrentTab('section6')}>
+                  ← Back
+                </Button>
                 <Button type="submit" disabled={isSubmitting}>
                   {isSubmitting ? (
                     <>
@@ -777,5 +1285,241 @@ export default function IntakeFormTabs({ onSubmit, isSubmitting }: IntakeFormTab
         </TabsContent>
       </Tabs>
     </form>
+  )
+}
+
+// File Upload Component
+function FileUploadSection({ onUpload, uploadedFiles, onRemove }: any) {
+  const [selectedFile, setSelectedFile] = useState<File | null>(null)
+  const [artifactType, setArtifactType] = useState('architecture_diagram')
+  const [description, setDescription] = useState('')
+  const [isUploading, setIsUploading] = useState(false)
+  const [dragActive, setDragActive] = useState(false)
+
+  const handleDrag = (e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    if (e.type === "dragenter" || e.type === "dragover") {
+      setDragActive(true)
+    } else if (e.type === "dragleave") {
+      setDragActive(false)
+    }
+  }
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setDragActive(false)
+
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      setSelectedFile(e.dataTransfer.files[0])
+    }
+  }
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      setSelectedFile(e.target.files[0])
+    }
+  }
+
+  const handleUpload = async () => {
+    if (!selectedFile) return
+
+    setIsUploading(true)
+    try {
+      await onUpload(selectedFile, artifactType, description)
+      // Reset form after successful upload
+      setSelectedFile(null)
+      setDescription('')
+      setArtifactType('architecture_diagram')
+      // Reset file input
+      const fileInput = document.getElementById('file-input') as HTMLInputElement
+      if (fileInput) fileInput.value = ''
+    } catch (error) {
+      alert('Upload failed. Please try again.')
+    } finally {
+      setIsUploading(false)
+    }
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* Drag and Drop Area */}
+      <div
+        className={`border-2 border-dashed rounded-lg p-8 text-center ${
+          dragActive ? 'border-blue-500 bg-blue-50' : 'border-gray-300'
+        }`}
+        onDragEnter={handleDrag}
+        onDragLeave={handleDrag}
+        onDragOver={handleDrag}
+        onDrop={handleDrop}
+      >
+        <Upload className="w-12 h-12 mx-auto mb-4 text-gray-400" />
+        <p className="text-sm text-gray-600 mb-2">
+          Drag and drop a file here, or click to select
+        </p>
+        <input
+          id="file-input"
+          type="file"
+          className="hidden"
+          onChange={handleFileSelect}
+          accept=".pdf,.doc,.docx,.png,.jpg,.jpeg,.svg,.txt,.md"
+        />
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={() => document.getElementById('file-input')?.click()}
+        >
+          Select File
+        </Button>
+        {selectedFile && (
+          <div className="mt-4 p-3 bg-gray-50 rounded border">
+            <p className="text-sm font-medium">{selectedFile.name}</p>
+            <p className="text-xs text-gray-500">{(selectedFile.size / 1024).toFixed(2)} KB</p>
+          </div>
+        )}
+      </div>
+
+      {/* Artifact Type and Description */}
+      {selectedFile && (
+        <div className="space-y-3">
+          <div>
+            <Label htmlFor="artifact_type">Document Type</Label>
+            <select
+              id="artifact_type"
+              className="w-full p-2 border rounded-md"
+              value={artifactType}
+              onChange={(e) => setArtifactType(e.target.value)}
+            >
+              <option value="architecture_diagram">Architecture Diagram</option>
+              <option value="data_flow_diagram">Data Flow Diagram</option>
+              <option value="model_card">Model Card</option>
+              <option value="technical_documentation">Technical Documentation</option>
+              <option value="risk_assessment">Risk Assessment</option>
+              <option value="compliance_documentation">Compliance Documentation</option>
+              <option value="test_results">Test Results</option>
+              <option value="other">Other</option>
+            </select>
+          </div>
+
+          <div>
+            <Label htmlFor="file_description">Description (Optional)</Label>
+            <textarea
+              id="file_description"
+              rows={2}
+              className="w-full p-2 border rounded-md"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="Brief description of this document..."
+            />
+          </div>
+
+          <Button
+            type="button"
+            onClick={handleUpload}
+            disabled={isUploading}
+            className="w-full"
+          >
+            {isUploading ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Uploading...
+              </>
+            ) : (
+              <>
+                <Upload className="mr-2 h-4 w-4" />
+                Upload File
+              </>
+            )}
+          </Button>
+        </div>
+      )}
+
+      {/* Uploaded Files List */}
+      {uploadedFiles.length > 0 && (
+        <div className="mt-6">
+          <h4 className="font-semibold mb-3">Uploaded Files ({uploadedFiles.length})</h4>
+          <div className="space-y-2">
+            {uploadedFiles.map((file: any) => (
+              <div
+                key={file.id}
+                className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border"
+              >
+                <div className="flex items-center space-x-3">
+                  <FileText className="w-5 h-5 text-blue-600" />
+                  <div>
+                    <p className="text-sm font-medium">{file.file_name}</p>
+                    <p className="text-xs text-gray-500 capitalize">
+                      {file.artifact_type.replace(/_/g, ' ')}
+                    </p>
+                    {file.description && (
+                      <p className="text-xs text-gray-600 mt-1">{file.description}</p>
+                    )}
+                  </div>
+                </div>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => onRemove(file.id)}
+                  className="text-red-600 hover:text-red-800"
+                >
+                  <X className="w-4 h-4" />
+                </Button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// Cloud Provider DPA Component
+function CloudProviderDPA({ provider }: { provider: string }) {
+  const dpaInfo: Record<string, { name: string; url: string; summary: string }> = {
+    AWS: {
+      name: 'AWS Data Processing Addendum',
+      url: 'https://aws.amazon.com/service-terms/',
+      summary: 'AWS processes customer data in accordance with the AWS Service Terms and AWS GDPR DPA. AWS provides strong data protection controls including encryption at rest and in transit, access controls, and audit logging.',
+    },
+    GCP: {
+      name: 'Google Cloud Data Processing Addendum',
+      url: 'https://cloud.google.com/terms/data-processing-addendum',
+      summary: 'Google Cloud processes customer data in accordance with their Data Processing Addendum. GCP provides comprehensive security controls, encryption, access management, and compliance certifications including SOC 2, ISO 27001, and GDPR compliance.',
+    },
+    Azure: {
+      name: 'Microsoft Azure Data Processing Addendum',
+      url: 'https://www.microsoft.com/licensing/docs/view/Microsoft-Products-and-Services-Data-Protection-Addendum-DPA',
+      summary: 'Microsoft Azure processes customer data according to their Data Protection Addendum. Azure provides enterprise-grade security including encryption, identity management, threat protection, and compliance with major regulatory frameworks.',
+    },
+  }
+
+  const info = dpaInfo[provider]
+  if (!info) return null
+
+  return (
+    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mt-4">
+      <div className="flex items-start">
+        <Shield className="w-5 h-5 text-blue-600 mr-2 mt-0.5 flex-shrink-0" />
+        <div>
+          <h4 className="font-semibold text-blue-900 mb-2">
+            {info.name}
+          </h4>
+          <p className="text-sm text-blue-800 mb-3">
+            {info.summary}
+          </p>
+          <a
+            href={info.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-sm text-blue-600 hover:text-blue-800 underline font-medium"
+          >
+            View Full {provider} Data Processing Addendum →
+          </a>
+        </div>
+      </div>
+    </div>
   )
 }

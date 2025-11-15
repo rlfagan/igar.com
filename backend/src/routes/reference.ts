@@ -34,6 +34,40 @@ router.get('/all', async (req: Request, res: Response) => {
   }
 });
 
+// Get models by type (for cascading dropdowns)
+router.get('/models', async (req: Request, res: Response) => {
+  try {
+    const { type, category } = req.query;
+    let query = 'SELECT * FROM ref_models WHERE 1=1';
+    const params: any[] = [];
+    let paramIndex = 1;
+
+    if (type) {
+      query += ` AND type = $${paramIndex}`;
+      params.push(type);
+      paramIndex++;
+    }
+
+    if (category) {
+      query += ` AND category = $${paramIndex}`;
+      params.push(category);
+      paramIndex++;
+    }
+
+    query += ' ORDER BY name';
+
+    const result = await pool.query(query, params);
+
+    res.json({
+      success: true,
+      models: result.rows,
+    });
+  } catch (error) {
+    console.error('Get models error:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+});
+
 // Get models by vendor
 router.get('/models/:vendor', async (req: Request, res: Response) => {
   try {

@@ -4,7 +4,8 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { ArrowLeft, FileText, Calendar, AlertCircle } from 'lucide-react'
+import { MainNavigation } from '@/components/layout/main-navigation'
+import { FileText, Calendar, AlertCircle } from 'lucide-react'
 
 interface Submission {
   id: number
@@ -58,25 +59,18 @@ export default function SubmissionsPage() {
   }
 
   return (
-    <main className="min-h-screen bg-gray-50 py-8">
-      <div className="container mx-auto px-4 max-w-6xl">
-        <div className="mb-6">
-          <Link href="/">
-            <Button variant="ghost" size="sm">
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              Back to Home
-            </Button>
-          </Link>
-        </div>
-
-        <Card className="mb-8">
+    <>
+      <MainNavigation />
+      <main className="min-h-screen bg-gray-50 py-8">
+        <div className="container mx-auto px-4 max-w-6xl">
+          <Card className="mb-8">
           <CardHeader>
             <div className="flex justify-between items-center">
               <div>
                 <CardTitle className="text-3xl">Submissions</CardTitle>
                 <p className="text-gray-600 mt-2">View all AI/ML model intake requests</p>
               </div>
-              <Link href="/submit">
+              <Link href="/intake">
                 <Button>New Submission</Button>
               </Link>
             </div>
@@ -92,7 +86,7 @@ export default function SubmissionsPage() {
             <CardContent className="text-center py-12">
               <FileText className="w-12 h-12 text-gray-400 mx-auto mb-4" />
               <p className="text-gray-600 mb-4">No submissions yet</p>
-              <Link href="/submit">
+              <Link href="/intake">
                 <Button>Create Your First Submission</Button>
               </Link>
             </CardContent>
@@ -130,5 +124,6 @@ export default function SubmissionsPage() {
         )}
       </div>
     </main>
+    </>
   )
 }

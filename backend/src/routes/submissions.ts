@@ -45,6 +45,9 @@ const submissionSchema = z.object({
   sees_sensitive_data: z.string().min(1),
   safety_features: z.array(z.string()),
   known_risks: z.string().optional(),
+
+  // Section 7
+  artifacts: z.array(z.number()).optional(),
 });
 
 // Create a new submission
@@ -103,6 +106,12 @@ router.post('/', async (req: Request, res: Response) => {
 
     const result = await pool.query(query, values);
     const submissionId = result.rows[0].id;
+
+    // Associate uploaded artifacts with this submission
+    if (validatedData.artifacts && validatedData.artifacts.length > 0) {
+      const updateArtifactsQuery = 'UPDATE artifacts SET submission_id = $1 WHERE id = ANY($2)';
+      await pool.query(updateArtifactsQuery, [submissionId, validatedData.artifacts]);
+    }
 
     // Trigger AI review asynchronously
     performAIReview({
@@ -176,11 +185,22 @@ router.get('/:id', async (req: Request, res: Response) => {
     const artifactsQuery = 'SELECT * FROM artifacts WHERE submission_id = $1';
     const artifactsResult = await pool.query(artifactsQuery, [id]);
 
+    // Get model metadata if available
+    let modelMetadata = null;
+    if (submission.model_origin_name) {
+      const modelQuery = 'SELECT * FROM ref_models WHERE name = $1 LIMIT 1';
+      const modelResult = await pool.query(modelQuery, [submission.model_origin_name]);
+      if (modelResult.rows.length > 0) {
+        modelMetadata = modelResult.rows[0];
+      }
+    }
+
     res.json({
       success: true,
       submission,
       review,
       artifacts: artifactsResult.rows,
+      modelMetadata,
     });
   } catch (error) {
     console.error('Get submission error:', error);

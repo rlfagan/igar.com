@@ -24,7 +24,18 @@ export default function SubmitPage() {
       })
 
       if (!response.ok) {
-        throw new Error('Submission failed')
+        const errorData = await response.json()
+        console.error('Validation errors:', errorData)
+
+        if (errorData.errors && Array.isArray(errorData.errors)) {
+          const errorMessages = errorData.errors.map((err: any) =>
+            `${err.path?.join('.') || 'Field'}: ${err.message}`
+          ).join('\n')
+          alert(`Validation failed:\n\n${errorMessages}`)
+        } else {
+          throw new Error('Submission failed')
+        }
+        return
       }
 
       const result = await response.json()

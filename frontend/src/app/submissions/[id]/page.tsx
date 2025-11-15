@@ -6,11 +6,14 @@ import Link from 'next/link'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { ArrowLeft, AlertTriangle, CheckCircle, XCircle, AlertCircle, FileText, Shield } from 'lucide-react'
+import { ModelCard } from '@/components/ModelCard'
 
 export default function SubmissionDetailPage() {
   const params = useParams()
   const [submission, setSubmission] = useState<any>(null)
   const [review, setReview] = useState<any>(null)
+  const [modelMetadata, setModelMetadata] = useState<any>(null)
+  const [artifacts, setArtifacts] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -26,6 +29,8 @@ export default function SubmissionDetailPage() {
       if (data.success) {
         setSubmission(data.submission)
         setReview(data.review)
+        setModelMetadata(data.modelMetadata)
+        setArtifacts(data.artifacts || [])
       }
     } catch (error) {
       console.error('Failed to fetch submission:', error)
@@ -119,6 +124,71 @@ export default function SubmissionDetailPage() {
             </div>
           </CardHeader>
         </Card>
+
+        {/* Model Card */}
+        {modelMetadata && (
+          <div className="mb-6">
+            <ModelCard modelMetadata={modelMetadata} />
+          </div>
+        )}
+
+        {/* Artifacts & Diagrams */}
+        {artifacts.length > 0 && (
+          <Card className="mb-6">
+            <CardHeader>
+              <CardTitle className="flex items-center">
+                <FileText className="mr-2 w-5 h-5" />
+                Uploaded Artifacts & Diagrams
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid md:grid-cols-2 gap-4">
+                {artifacts.map((artifact: any) => {
+                  const isImage = artifact.file_type?.startsWith('image/');
+                  const fileUrl = `${process.env.NEXT_PUBLIC_API_URL}/uploads/${artifact.file_path}`;
+
+                  return (
+                    <div key={artifact.id} className="border rounded-lg p-4">
+                      <div className="flex items-start justify-between mb-2">
+                        <div>
+                          <h4 className="font-semibold text-sm">{artifact.file_name}</h4>
+                          <p className="text-xs text-gray-500 capitalize">{artifact.artifact_type?.replace('_', ' ')}</p>
+                        </div>
+                        <a
+                          href={fileUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-blue-600 hover:text-blue-800 text-xs"
+                        >
+                          Download
+                        </a>
+                      </div>
+
+                      {isImage ? (
+                        <div className="mt-2">
+                          <img
+                            src={fileUrl}
+                            alt={artifact.file_name}
+                            className="w-full rounded border"
+                          />
+                        </div>
+                      ) : (
+                        <div className="mt-2 p-4 bg-gray-50 rounded text-center">
+                          <FileText className="w-8 h-8 mx-auto text-gray-400 mb-2" />
+                          <p className="text-xs text-gray-600">{artifact.file_type}</p>
+                        </div>
+                      )}
+
+                      {artifact.description && (
+                        <p className="text-xs text-gray-600 mt-2">{artifact.description}</p>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* AI Review Results */}
         {review ? (

@@ -11,6 +11,7 @@ interface SubmissionData {
   model_name: string;
   model_type: string;
   model_origin: string;
+  model_origin_name?: string;
   vendor_name?: string;
   intended_purpose: string;
   business_impact_category: string;
@@ -23,6 +24,19 @@ interface SubmissionData {
   sees_sensitive_data: string;
   safety_features: string[];
   known_risks?: string;
+}
+
+interface ModelMetadata {
+  name: string;
+  vendor?: string;
+  version?: string;
+  type?: string;
+  category?: string;
+  parameters?: string;
+  description?: string;
+  use_cases?: string;
+  license?: string;
+  documentation_url?: string;
 }
 
 interface ReviewResult {
@@ -43,7 +57,20 @@ interface ReviewResult {
 }
 
 export async function performAIReview(submission: SubmissionData): Promise<ReviewResult> {
-  const prompt = buildReviewPrompt(submission);
+  // Fetch model metadata if available
+  let modelMetadata: ModelMetadata | null = null;
+  if (submission.model_origin_name) {
+    try {
+      const result = await pool.query('SELECT * FROM ref_models WHERE name = $1 LIMIT 1', [submission.model_origin_name]);
+      if (result.rows.length > 0) {
+        modelMetadata = result.rows[0];
+      }
+    } catch (error) {
+      console.error('Failed to fetch model metadata:', error);
+    }
+  }
+
+  const prompt = buildReviewPrompt(submission, modelMetadata);
 
   try {
     const message = await anthropic.messages.create({
@@ -79,8 +106,10 @@ function buildSystemPrompt(): string {
 2. **Security & Privacy**: PII/PHI detection, data protection, GLBA compliance, access controls
 3. **Bias & Fairness**: Potential for discriminatory outcomes, protected class considerations
 4. **Model Risk**: Inherent model limitations, data quality issues, validation requirements
-5. **Vendor Risk**: For COTS products - vendor reputation, security posture, contract terms
-6. **Operational Risk**: Deployment risks, monitoring capabilities, incident response
+5. **Model Modifications Impact**: For fine-tuned or modified models, assess the risk implications of customizations including potential for degraded performance, introduced biases, loss of safety features, compliance violations, and validation requirements
+6. **Vendor Risk**: For COTS products - vendor reputation, security posture, contract terms
+7. **Operational Risk**: Deployment risks, monitoring capabilities, incident response
+8. **Model Metadata Analysis**: When available, leverage model parameters, known use cases, license restrictions, known limitations, and training data information to inform your assessment
 
 Your output must be structured JSON with the following fields:
 - risk_score: Integer 0-100 (0=minimal risk, 100=critical risk)
@@ -97,10 +126,37 @@ Your output must be structured JSON with the following fields:
 - pii_details: Object with PII types and locations
 - vendor_evaluation: Object with vendor-specific assessment (for COTS only)
 
+When model metadata is provided, consider:
+- License restrictions and their implications for the intended use
+- Known limitations of the model type and how they apply to the use case
+- Whether the model's typical use cases align with the requested purpose
+- Model size/parameters and their implications for performance, cost, and risk
+- Training data characteristics and potential biases
+- Vendor reputation and documentation quality
+
 Be thorough, specific, and cite relevant regulations. Focus on financial services compliance requirements.`;
 }
 
-function buildReviewPrompt(submission: SubmissionData): string {
+function buildReviewPrompt(submission: SubmissionData, modelMetadata: ModelMetadata | null): string {
+  let metadataSection = '';
+  if (modelMetadata) {
+    metadataSection = `
+### MODEL METADATA (Reference Information)
+- **Model Name**: ${modelMetadata.name}
+${modelMetadata.vendor ? `- **Vendor**: ${modelMetadata.vendor}` : ''}
+${modelMetadata.version ? `- **Version**: ${modelMetadata.version}` : ''}
+${modelMetadata.parameters ? `- **Parameters/Size**: ${modelMetadata.parameters}` : ''}
+${modelMetadata.type ? `- **Type**: ${modelMetadata.type}` : ''}
+${modelMetadata.category ? `- **Category**: ${modelMetadata.category}` : ''}
+${modelMetadata.description ? `- **Description**: ${modelMetadata.description}` : ''}
+${modelMetadata.use_cases ? `- **Typical Use Cases**: ${modelMetadata.use_cases}` : ''}
+${modelMetadata.license ? `- **License**: ${modelMetadata.license}` : ''}
+${modelMetadata.documentation_url ? `- **Documentation**: ${modelMetadata.documentation_url}` : ''}
+
+**NOTE**: Use this metadata to inform your risk assessment. Consider license restrictions, known limitations, typical use cases vs. intended use, and vendor reputation.
+`;
+  }
+
   return `Please review the following AI/ML model intake request and provide a comprehensive risk assessment:
 
 ## SUBMISSION DETAILS
@@ -111,7 +167,7 @@ function buildReviewPrompt(submission: SubmissionData): string {
 - **Model Type**: ${submission.model_type}
 - **Model Origin**: ${submission.model_origin}
 ${submission.vendor_name ? `- **Vendor**: ${submission.vendor_name}` : ''}
-
+${metadataSection}
 ### Section 2: Intended Use & Scope
 - **Purpose**: ${submission.intended_purpose}
 - **Business Impact**: ${submission.business_impact_category}
@@ -143,7 +199,9 @@ Please provide your assessment in valid JSON format with all required fields. Co
 3. Are there PII/sensitive data concerns in the data sources?
 4. What is the inherent risk of the model type and use case?
 5. Are adequate controls and safeguards in place?
-6. What additional actions are required before deployment?
+6. **CRITICAL: If model modifications were made (fine-tuning, prompt engineering, architecture changes, etc.), what are the risk implications? Consider: validation requirements, potential for degraded performance, introduced biases, loss of safety features, and compliance impacts. This MUST be explicitly called out in findings.**
+7. What additional actions are required before deployment?
+${modelMetadata ? '8. How does the model metadata (license, typical use cases, known limitations) inform the risk assessment?' : ''}
 
 Provide your response as a JSON object matching the schema described in your system prompt.`;
 }
