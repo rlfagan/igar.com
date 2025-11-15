@@ -111,17 +111,14 @@ npm run seed
 
 ### Step 2: Configure Build Settings
 
-Vercel will use the `vercel.json` configuration file automatically. The project includes:
-- `vercel.json` - Build configuration for deploying frontend from monorepo
+**IMPORTANT**: Set the **Root Directory** to `frontend` in Vercel project settings.
 
-**No manual configuration needed** - Vercel will auto-detect the configuration.
+1. In Vercel project settings, go to **General** → **Build & Development Settings**
+2. Set **Root Directory**: `frontend`
+3. **Framework Preset**: Next.js (auto-detected)
+4. The `vercel.json` file will handle the rest automatically
 
-If you need to override settings manually:
-- **Framework Preset**: Next.js
-- **Build Command**: `cd frontend && npm install && npm run build`
-- **Output Directory**: `frontend/.next`
-- **Install Command**: `cd frontend && npm install`
-- **Node Version**: 20.x
+This tells Vercel to only build the frontend directory and ignore the monorepo workspace setup.
 
 ### Step 3: Set Environment Variables
 
