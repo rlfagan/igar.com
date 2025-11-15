@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { RiskBadge, ComplianceBadge } from '@/components/ui/risk-badge'
 import { MainNavigation } from '@/components/layout/main-navigation'
+import { AIChatAssistant } from '@/components/ai-chat-assistant'
 import {
   ClockCounterClockwise,
   WarningCircle,
@@ -531,6 +532,31 @@ export default function DashboardPage() {
           </div>
         </div>
       </div>
+
+      {/* AI Chat Assistant */}
+      <AIChatAssistant
+        context={{
+          page: 'Dashboard',
+          warnings: [
+            'Critical: High discrimination risk (ECOA violation) - Credit Underwriting Model',
+            'Missing safety testing evidence - Medical Diagnosis Assistant',
+            'New model added without approval - Sentiment Analysis Tool (shadow AI)',
+            'Missing model card documentation'
+          ],
+          riskScores: {
+            'Discrimination Risk': 85,
+            'Data Privacy': 67,
+            'Model Performance': 78,
+            'Transparency': 92,
+            'Compliance': 72
+          },
+          complianceIssues: [
+            'ECOA compliance violation detected in Credit Underwriting Model',
+            'Missing documentation for 3 AI models',
+            'Adversarial robustness testing not completed for Medical Diagnosis Assistant'
+          ]
+        }}
+      />
     </>
   )
 }

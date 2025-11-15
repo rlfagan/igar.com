@@ -8,6 +8,7 @@ import { MainNavigation } from '@/components/layout/main-navigation'
 import { StickyProgressHeader } from '@/components/intake/sticky-progress-header'
 import { AIAssistantPanel } from '@/components/layout/ai-assistant-panel'
 import { ValidationChecklist } from '@/components/layout/validation-checklist'
+import { AIChatAssistant } from '@/components/ai-chat-assistant'
 import { ArrowLeft, ArrowRight, FloppyDisk } from '@phosphor-icons/react'
 
 // Import section components (will create these next)
@@ -243,6 +244,23 @@ export default function IntakeFormPage() {
         </div>
       </div>
       </div>
+
+      {/* AI Chat Assistant */}
+      <AIChatAssistant
+        context={{
+          page: 'Intake Form',
+          warnings: validationItems
+            .filter((item) => item.status === 'error')
+            .map((item) => item.label),
+          riskScores: {
+            'Overall Risk': riskScore
+          },
+          complianceIssues: [
+            'Ensure all required documentation is complete',
+            'Model card and training data information required for compliance'
+          ]
+        }}
+      />
     </>
   )
 }
