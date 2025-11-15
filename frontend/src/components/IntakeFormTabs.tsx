@@ -300,25 +300,39 @@ export default function IntakeFormTabs({ onSubmit, isSubmitting }: IntakeFormTab
                   </div>
                   {referenceData && referenceData.models && (
                     <div className="text-xs text-gray-600">
-                      <p className="font-medium mb-1">Popular open-source models:</p>
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-1">
+                      <p className="font-medium mb-1">Click to auto-fill:</p>
+                      <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
                         {referenceData.models
                           .filter((m: any) => m.category === 'open_source')
-                          .slice(0, 8)
-                          .map((model: any) => (
-                            <button
-                              key={model.id}
-                              type="button"
-                              className="px-2 py-1 bg-gray-100 hover:bg-gray-200 rounded text-xs text-left"
-                              onClick={() => setFormData({
-                                ...formData,
-                                model_origin_name: model.name,
-                                model_origin_version: model.version
-                              })}
-                            >
-                              {model.name}
-                            </button>
-                          ))}
+                          .slice(0, 12)
+                          .map((model: any) => {
+                            // Determine source URL based on vendor/model
+                            let sourceUrl = formData.model_origin_url
+                            if (model.vendor === 'Meta') {
+                              sourceUrl = `https://huggingface.co/meta-llama/${model.version}`
+                            } else if (model.vendor === 'Mistral AI') {
+                              sourceUrl = `https://huggingface.co/mistralai/${model.version}`
+                            } else if (model.vendor === 'Hugging Face' || model.vendor === 'Open Source') {
+                              sourceUrl = `https://huggingface.co/${model.version}`
+                            }
+
+                            return (
+                              <button
+                                key={model.id}
+                                type="button"
+                                className="px-3 py-2 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded text-xs text-left"
+                                onClick={() => setFormData({
+                                  ...formData,
+                                  model_origin_name: model.name,
+                                  model_origin_version: model.version,
+                                  model_origin_url: sourceUrl
+                                })}
+                              >
+                                <div className="font-semibold text-blue-900">{model.name}</div>
+                                <div className="text-blue-600">{model.version}</div>
+                              </button>
+                            )
+                          })}
                       </div>
                     </div>
                   )}
