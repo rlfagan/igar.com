@@ -1,9 +1,0 @@
-backend/
-Dockerfile.railway
-railway.json
-docker-compose.yml
-.git/
-.gitignore
-*.md
-package.json
-package-lock.json

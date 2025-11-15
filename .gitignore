@@ -45,3 +45,10 @@ uploads/*
 # Database
 *.sqlite
 *.db
+
+# Vercel
+.vercel
+
+# TypeScript
+*.tsbuildinfo
+next-env.d.ts
