@@ -94,12 +94,10 @@ Keep your responses:
     // Add previous conversation (limit to last 10 messages to avoid token limits)
     const recentHistory = conversationHistory.slice(-10);
     recentHistory.forEach((msg) => {
-      if (msg.role !== 'system') {
-        messages.push({
-          role: msg.role,
-          content: msg.content,
-        });
-      }
+      messages.push({
+        role: msg.role,
+        content: msg.content,
+      });
     });
 
     // Add current message
