@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import IntakeForm from '@/components/IntakeForm'
+import IntakeFormTabs from '@/components/IntakeFormTabs'
 import { ArrowLeft } from 'lucide-react'
 import Link from 'next/link'
 
@@ -61,7 +61,7 @@ export default function SubmitPage() {
           </CardHeader>
         </Card>
 
-        <IntakeForm onSubmit={handleSubmit} isSubmitting={isSubmitting} />
+        <IntakeFormTabs onSubmit={handleSubmit} isSubmitting={isSubmitting} />
       </div>
     </main>
   )

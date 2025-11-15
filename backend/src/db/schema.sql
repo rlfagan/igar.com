@@ -136,10 +136,10 @@ CREATE TABLE IF NOT EXISTS comments (
 );
 
 -- Indexes
-CREATE INDEX idx_submissions_user_id ON submissions(user_id);
-CREATE INDEX idx_submissions_status ON submissions(status);
-CREATE INDEX idx_submissions_created_at ON submissions(created_at);
-CREATE INDEX idx_artifacts_submission_id ON artifacts(submission_id);
-CREATE INDEX idx_ai_reviews_submission_id ON ai_reviews(submission_id);
-CREATE INDEX idx_audit_log_submission_id ON audit_log(submission_id);
-CREATE INDEX idx_comments_submission_id ON comments(submission_id);
+CREATE INDEX IF NOT EXISTS idx_submissions_user_id ON submissions(user_id);
+CREATE INDEX IF NOT EXISTS idx_submissions_status ON submissions(status);
+CREATE INDEX IF NOT EXISTS idx_submissions_created_at ON submissions(created_at);
+CREATE INDEX IF NOT EXISTS idx_artifacts_submission_id ON artifacts(submission_id);
+CREATE INDEX IF NOT EXISTS idx_ai_reviews_submission_id ON ai_reviews(submission_id);
+CREATE INDEX IF NOT EXISTS idx_audit_log_submission_id ON audit_log(submission_id);
+CREATE INDEX IF NOT EXISTS idx_comments_submission_id ON comments(submission_id);

@@ -5,16 +5,17 @@ import dotenv from 'dotenv';
 import rateLimit from 'express-rate-limit';
 import submissionsRouter from './routes/submissions';
 import uploadsRouter from './routes/uploads';
+import referenceRouter from './routes/reference';
 
 dotenv.config();
 
 const app = express();
-const PORT = process.env.PORT || 3001;
+const PORT = process.env.PORT || 9501;
 
 // Security middleware
 app.use(helmet());
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+  origin: process.env.FRONTEND_URL || 'http://localhost:9500',
   credentials: true,
 }));
 
@@ -38,6 +39,7 @@ app.get('/health', (req: Request, res: Response) => {
 // API routes
 app.use('/api/submissions', submissionsRouter);
 app.use('/api/uploads', uploadsRouter);
+app.use('/api/reference', referenceRouter);
 
 // Error handling middleware
 app.use((err: any, req: Request, res: Response, next: any) => {
