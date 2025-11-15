@@ -5,3 +5,5 @@ docker-compose.yml
 .git/
 .gitignore
 *.md
+package.json
+package-lock.json
