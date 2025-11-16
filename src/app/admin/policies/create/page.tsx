@@ -31,7 +31,9 @@ export default function CreatePolicyPage() {
   const [policyName, setPolicyName] = useState('')
   const [policyDescription, setPolicyDescription] = useState('')
   const [searchQuery, setSearchQuery] = useState('')
+  const [categoryFilter, setCategoryFilter] = useState<string>('all')
   const [activeId, setActiveId] = useState<string | null>(null)
+  const [saving, setSaving] = useState(false)
 
   const [policyLists, setPolicyLists] = useState<PolicyLists>({
     approved: [],
@@ -126,9 +128,12 @@ export default function CreatePolicyPage() {
     setPolicyDescription('Default governance policy for approved, denied, and review-required AI resources')
   }
 
-  const filteredCatalog = searchQuery
-    ? searchCatalog(searchQuery)
-    : aiCatalog
+  let filteredCatalog = searchQuery ? searchCatalog(searchQuery) : aiCatalog
+
+  // Apply category filter
+  if (categoryFilter !== 'all') {
+    filteredCatalog = filteredCatalog.filter(item => item.category === categoryFilter)
+  }
 
   // Check if item is already in a list
   const isItemInPolicy = (itemId: string) => {
@@ -185,6 +190,11 @@ export default function CreatePolicyPage() {
   }
 
   const handleSave = async () => {
+    if (!policyName) {
+      alert('Please enter a policy name')
+      return
+    }
+
     const policy = {
       name: policyName,
       description: policyDescription,
@@ -210,9 +220,29 @@ export default function CreatePolicyPage() {
       },
     }
 
-    console.log('Saving policy:', policy)
-    // TODO: Send to API
-    alert('Policy saved! (Check console for JSON)')
+    setSaving(true)
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/ai-policies`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(policy),
+      })
+
+      const data = await response.json()
+
+      if (data.success) {
+        alert('Policy saved successfully!')
+        // Optionally redirect to policy list
+        // router.push('/admin/policies')
+      } else {
+        alert(`Failed to save policy: ${data.message}`)
+      }
+    } catch (error) {
+      console.error('Error saving policy:', error)
+      alert('Failed to save policy. Please try again.')
+    } finally {
+      setSaving(false)
+    }
   }
 
   const getCategoryColor = (category: string) => {
@@ -290,7 +320,7 @@ export default function CreatePolicyPage() {
                   <CardDescription>Drag items to policy lists</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <div className="mb-4">
+                  <div className="mb-4 space-y-3">
                     <div className="relative">
                       <MagnifyingGlass className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
                       <Input
@@ -299,6 +329,70 @@ export default function CreatePolicyPage() {
                         onChange={(e) => setSearchQuery(e.target.value)}
                         className="pl-9"
                       />
+                    </div>
+
+                    {/* Category Filter */}
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        onClick={() => setCategoryFilter('all')}
+                        className={`px-3 py-1 text-xs rounded-full transition-colors ${
+                          categoryFilter === 'all'
+                            ? 'bg-indigo-600 text-white'
+                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                        }`}
+                      >
+                        All
+                      </button>
+                      <button
+                        onClick={() => setCategoryFilter('model')}
+                        className={`px-3 py-1 text-xs rounded-full transition-colors ${
+                          categoryFilter === 'model'
+                            ? 'bg-blue-600 text-white'
+                            : 'bg-blue-100 text-blue-700 hover:bg-blue-200'
+                        }`}
+                      >
+                        Models
+                      </button>
+                      <button
+                        onClick={() => setCategoryFilter('tool')}
+                        className={`px-3 py-1 text-xs rounded-full transition-colors ${
+                          categoryFilter === 'tool'
+                            ? 'bg-green-600 text-white'
+                            : 'bg-green-100 text-green-700 hover:bg-green-200'
+                        }`}
+                      >
+                        Tools
+                      </button>
+                      <button
+                        onClick={() => setCategoryFilter('oss')}
+                        className={`px-3 py-1 text-xs rounded-full transition-colors ${
+                          categoryFilter === 'oss'
+                            ? 'bg-purple-600 text-white'
+                            : 'bg-purple-100 text-purple-700 hover:bg-purple-200'
+                        }`}
+                      >
+                        OSS
+                      </button>
+                      <button
+                        onClick={() => setCategoryFilter('dataset')}
+                        className={`px-3 py-1 text-xs rounded-full transition-colors ${
+                          categoryFilter === 'dataset'
+                            ? 'bg-orange-600 text-white'
+                            : 'bg-orange-100 text-orange-700 hover:bg-orange-200'
+                        }`}
+                      >
+                        Datasets
+                      </button>
+                      <button
+                        onClick={() => setCategoryFilter('use_case')}
+                        className={`px-3 py-1 text-xs rounded-full transition-colors ${
+                          categoryFilter === 'use_case'
+                            ? 'bg-pink-600 text-white'
+                            : 'bg-pink-100 text-pink-700 hover:bg-pink-200'
+                        }`}
+                      >
+                        Use Cases
+                      </button>
                     </div>
                   </div>
 
@@ -387,8 +481,8 @@ export default function CreatePolicyPage() {
 
         {/* Actions */}
         <div className="mt-8 flex gap-4">
-          <Button onClick={handleSave} size="lg" disabled={!policyName}>
-            Save Policy
+          <Button onClick={handleSave} size="lg" disabled={!policyName || saving}>
+            {saving ? 'Saving...' : 'Save Policy'}
           </Button>
           <Button variant="outline" size="lg" asChild>
             <Link href="/admin/policies">Cancel</Link>
