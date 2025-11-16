@@ -36,6 +36,13 @@ interface UseCaseRestriction {
   deniedUseCases: string[]
 }
 
+interface Department {
+  id: number
+  name: string
+  slug: string
+  description?: string
+}
+
 export default function CreatePolicyPage() {
   const [aiCatalog, setAiCatalog] = useState<CatalogItem[]>(aiCatalogFallback)
   const [catalogLoading, setCatalogLoading] = useState(true)
@@ -56,6 +63,11 @@ export default function CreatePolicyPage() {
   const [showRestrictionModal, setShowRestrictionModal] = useState(false)
   const [pendingApproval, setPendingApproval] = useState<CatalogItem | null>(null)
 
+  // Department selection
+  const [departments, setDepartments] = useState<Department[]>([])
+  const [isGlobal, setIsGlobal] = useState(true)
+  const [selectedDepartments, setSelectedDepartments] = useState<number[]>([])
+
   // Fetch catalog from database on mount
   useEffect(() => {
     const loadCatalog = async () => {
@@ -64,6 +76,22 @@ export default function CreatePolicyPage() {
       setCatalogLoading(false)
     }
     loadCatalog()
+  }, [])
+
+  // Fetch departments on mount
+  useEffect(() => {
+    const loadDepartments = async () => {
+      try {
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/departments`)
+        const data = await response.json()
+        if (data.success) {
+          setDepartments(data.departments)
+        }
+      } catch (error) {
+        console.error('Error fetching departments:', error)
+      }
+    }
+    loadDepartments()
   }, [])
 
   const sensors = useSensors(
@@ -282,6 +310,8 @@ export default function CreatePolicyPage() {
         use_cases: policyLists.review.filter(i => i.category === 'use_case').map(i => i.id),
       },
       use_case_restrictions: useCaseRestrictions,
+      is_global: isGlobal,
+      department_ids: isGlobal ? [] : selectedDepartments,
     }
 
     setSaving(true)
@@ -365,6 +395,70 @@ export default function CreatePolicyPage() {
                 value={policyDescription}
                 onChange={(e) => setPolicyDescription(e.target.value)}
               />
+            </div>
+
+            {/* Policy Scope */}
+            <div className="space-y-3 pt-2">
+              <Label>Policy Scope</Label>
+              <div className="flex gap-4">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    checked={isGlobal}
+                    onChange={() => {
+                      setIsGlobal(true)
+                      setSelectedDepartments([])
+                    }}
+                    className="w-4 h-4 text-indigo-600"
+                  />
+                  <span className="text-sm text-primary-900">Global (All Departments)</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    checked={!isGlobal}
+                    onChange={() => setIsGlobal(false)}
+                    className="w-4 h-4 text-indigo-600"
+                  />
+                  <span className="text-sm text-primary-900">Specific Departments</span>
+                </label>
+              </div>
+
+              {/* Department selector - shown only when not global */}
+              {!isGlobal && (
+                <div className="mt-3 p-4 border border-neutral-200 rounded-lg bg-neutral-50">
+                  <Label className="mb-2 block text-sm font-medium">Select Departments</Label>
+                  <div className="grid grid-cols-2 gap-2 max-h-60 overflow-y-auto">
+                    {departments.map((dept) => (
+                      <label key={dept.id} className="flex items-start gap-2 p-2 hover:bg-white rounded cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={selectedDepartments.includes(dept.id)}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setSelectedDepartments([...selectedDepartments, dept.id])
+                            } else {
+                              setSelectedDepartments(selectedDepartments.filter(id => id !== dept.id))
+                            }
+                          }}
+                          className="mt-0.5 w-4 h-4 text-indigo-600"
+                        />
+                        <div>
+                          <div className="text-sm font-medium text-primary-900">{dept.name}</div>
+                          {dept.description && (
+                            <div className="text-xs text-primary-600">{dept.description}</div>
+                          )}
+                        </div>
+                      </label>
+                    ))}
+                  </div>
+                  {selectedDepartments.length > 0 && (
+                    <p className="text-xs text-indigo-600 mt-2">
+                      {selectedDepartments.length} department{selectedDepartments.length !== 1 ? 's' : ''} selected
+                    </p>
+                  )}
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>
