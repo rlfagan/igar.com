@@ -10,6 +10,8 @@ import {
   PointerSensor,
   useSensor,
   useSensors,
+  useDroppable,
+  useDraggable,
 } from '@dnd-kit/core'
 import { arrayMove, SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { Button } from '@/components/ui/button'
@@ -400,29 +402,12 @@ export default function CreatePolicyPage() {
                     {filteredCatalog.map((item) => {
                       const inPolicy = isItemInPolicy(item.id)
                       return (
-                        <div
+                        <DraggableCatalogItem
                           key={item.id}
-                          draggable={!inPolicy}
-                          onDragStart={() => setActiveId(item.id)}
-                          className={`p-3 rounded-lg border text-sm ${
-                            inPolicy
-                              ? 'bg-gray-100 border-gray-200 opacity-50 cursor-not-allowed'
-                              : 'bg-white border-gray-300 cursor-move hover:border-indigo-400 hover:shadow-sm'
-                          }`}
-                        >
-                          <div className="flex items-start justify-between gap-2">
-                            <div className="flex-1 min-w-0">
-                              <p className="font-medium text-primary-900 truncate">{item.name}</p>
-                              {item.provider && (
-                                <p className="text-xs text-primary-600 truncate">{item.provider}</p>
-                              )}
-                            </div>
-                            {inPolicy && <Check weight="bold" className="w-4 h-4 text-green-600 flex-shrink-0" />}
-                          </div>
-                          <Badge className={`mt-2 text-xs ${getCategoryColor(item.category)}`}>
-                            {item.category}
-                          </Badge>
-                        </div>
+                          item={item}
+                          inPolicy={inPolicy}
+                          getCategoryColor={getCategoryColor}
+                        />
                       )
                     })}
                   </div>
@@ -493,6 +478,53 @@ export default function CreatePolicyPage() {
   )
 }
 
+interface DraggableCatalogItemProps {
+  item: CatalogItem
+  inPolicy: boolean
+  getCategoryColor: (category: string) => string
+}
+
+function DraggableCatalogItem({ item, inPolicy, getCategoryColor }: DraggableCatalogItemProps) {
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+    id: item.id,
+    disabled: inPolicy,
+  })
+
+  const style = transform
+    ? {
+        transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`,
+        opacity: isDragging ? 0.5 : 1,
+      }
+    : undefined
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      {...listeners}
+      {...attributes}
+      className={`p-3 rounded-lg border text-sm ${
+        inPolicy
+          ? 'bg-gray-100 border-gray-200 opacity-50 cursor-not-allowed'
+          : 'bg-white border-gray-300 cursor-grab active:cursor-grabbing hover:border-indigo-400 hover:shadow-sm'
+      }`}
+    >
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex-1 min-w-0">
+          <p className="font-medium text-primary-900 truncate">{item.name}</p>
+          {item.provider && (
+            <p className="text-xs text-primary-600 truncate">{item.provider}</p>
+          )}
+        </div>
+        {inPolicy && <Check weight="bold" className="w-4 h-4 text-green-600 flex-shrink-0" />}
+      </div>
+      <Badge className={`mt-2 text-xs ${getCategoryColor(item.category)}`}>
+        {item.category}
+      </Badge>
+    </div>
+  )
+}
+
 interface DropZoneProps {
   id: string
   title: string
@@ -504,6 +536,8 @@ interface DropZoneProps {
 }
 
 function DropZone({ id, title, description, items, onRemove, getCategoryColor, color }: DropZoneProps) {
+  const { setNodeRef, isOver } = useDroppable({ id })
+
   const colorClasses = {
     green: 'border-green-300 bg-green-50/50',
     yellow: 'border-yellow-300 bg-yellow-50/50',
@@ -518,8 +552,10 @@ function DropZone({ id, title, description, items, onRemove, getCategoryColor, c
 
   return (
     <div
-      id={id}
-      className={`border-2 border-dashed rounded-lg p-6 min-h-[200px] ${colorClasses[color]}`}
+      ref={setNodeRef}
+      className={`border-2 border-dashed rounded-lg p-6 min-h-[200px] transition-colors ${colorClasses[color]} ${
+        isOver ? 'ring-2 ring-indigo-500 bg-indigo-50/30' : ''
+      }`}
     >
       <div className="flex items-center justify-between mb-4">
         <div>
