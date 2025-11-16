@@ -1,4 +1,6 @@
 // AI Catalog - Available models, tools, datasets, and use cases
+// This is the fallback catalog - the database is now the source of truth
+// Use fetchAICatalog() to get catalog from API
 
 export interface CatalogItem {
   id: string
@@ -7,9 +9,12 @@ export interface CatalogItem {
   category: 'model' | 'tool' | 'oss' | 'dataset' | 'use_case'
   description?: string
   tags?: string[]
+  version?: string
+  license?: string
 }
 
-export const aiCatalog: CatalogItem[] = [
+// Fallback catalog for offline/dev mode
+export const aiCatalogFallback: CatalogItem[] = [
   // Models
   { id: 'openai:gpt-4.1', name: 'GPT-4.1', provider: 'OpenAI', category: 'model', tags: ['llm', 'commercial'] },
   { id: 'openai:gpt-4.1-mini', name: 'GPT-4.1 Mini', provider: 'OpenAI', category: 'model', tags: ['llm', 'commercial', 'cost-effective'] },
@@ -76,17 +81,48 @@ export const aiCatalog: CatalogItem[] = [
   { id: 'unexplainable-credit-decisions', name: 'Unexplainable Credit Decisions', category: 'use_case', tags: ['credit', 'prohibited'] },
 ]
 
-export const getCatalogByCategory = (category: CatalogItem['category']) => {
-  return aiCatalog.filter(item => item.category === category)
+// Export fallback as aiCatalog for backward compatibility
+export const aiCatalog = aiCatalogFallback
+
+// Fetch catalog from API
+export const fetchAICatalog = async (): Promise<CatalogItem[]> => {
+  try {
+    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/ai-catalog?active_only=true`)
+    const data = await response.json()
+
+    if (data.success && data.items) {
+      // Transform database items to match CatalogItem interface
+      return data.items.map((item: any) => ({
+        id: item.catalog_id,
+        name: item.name,
+        provider: item.provider,
+        category: item.category,
+        description: item.description,
+        tags: item.tags || [],
+        version: item.version,
+        license: item.license,
+      }))
+    }
+
+    // Fallback to static catalog if API fails
+    return aiCatalogFallback
+  } catch (error) {
+    console.error('Error fetching AI catalog:', error)
+    return aiCatalogFallback
+  }
 }
 
-export const getUseCases = () => {
-  return aiCatalog.filter(item => item.category === 'use_case')
+export const getCatalogByCategory = (catalog: CatalogItem[], category: CatalogItem['category']) => {
+  return catalog.filter(item => item.category === category)
 }
 
-export const searchCatalog = (query: string) => {
+export const getUseCases = (catalog: CatalogItem[]) => {
+  return catalog.filter(item => item.category === 'use_case')
+}
+
+export const searchCatalog = (catalog: CatalogItem[], query: string) => {
   const lowerQuery = query.toLowerCase()
-  return aiCatalog.filter(item =>
+  return catalog.filter(item =>
     item.name.toLowerCase().includes(lowerQuery) ||
     item.id.toLowerCase().includes(lowerQuery) ||
     item.provider?.toLowerCase().includes(lowerQuery) ||

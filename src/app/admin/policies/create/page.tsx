@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
   DndContext,
   DragEndEvent,
@@ -19,7 +19,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
-import { aiCatalog, CatalogItem, searchCatalog } from '@/lib/ai-catalog'
+import { aiCatalog as aiCatalogFallback, CatalogItem, searchCatalog, fetchAICatalog } from '@/lib/ai-catalog'
 import { Check, Plus, X, MagnifyingGlass, ArrowLeft } from '@phosphor-icons/react'
 import Link from 'next/link'
 
@@ -30,6 +30,8 @@ interface PolicyLists {
 }
 
 export default function CreatePolicyPage() {
+  const [aiCatalog, setAiCatalog] = useState<CatalogItem[]>(aiCatalogFallback)
+  const [catalogLoading, setCatalogLoading] = useState(true)
   const [policyName, setPolicyName] = useState('')
   const [policyDescription, setPolicyDescription] = useState('')
   const [searchQuery, setSearchQuery] = useState('')
@@ -42,6 +44,16 @@ export default function CreatePolicyPage() {
     denied: [],
     review: [],
   })
+
+  // Fetch catalog from database on mount
+  useEffect(() => {
+    const loadCatalog = async () => {
+      const catalog = await fetchAICatalog()
+      setAiCatalog(catalog)
+      setCatalogLoading(false)
+    }
+    loadCatalog()
+  }, [])
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -130,7 +142,7 @@ export default function CreatePolicyPage() {
     setPolicyDescription('Default governance policy for approved, denied, and review-required AI resources')
   }
 
-  let filteredCatalog = searchQuery ? searchCatalog(searchQuery) : aiCatalog
+  let filteredCatalog = searchQuery ? searchCatalog(aiCatalog, searchQuery) : aiCatalog
 
   // Apply category filter
   if (categoryFilter !== 'all') {
