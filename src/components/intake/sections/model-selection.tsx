@@ -223,6 +223,48 @@ export function ModelSelectionSection({ data, onChange }: ModelSelectionProps) {
         </>
       )}
 
+      {/* Conditional: Open Source */}
+      {modelOrigin === 'opensource' && (
+        <>
+          <div className="space-y-2">
+            <Label htmlFor="ossVendor">OSS Provider *</Label>
+            <select
+              id="ossVendor"
+              value={data?.vendor || ''}
+              onChange={(e) => handleFieldChange('vendor', e.target.value)}
+              className="w-full p-2 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            >
+              <option value="">Select provider...</option>
+              <option value="meta">Meta</option>
+              <option value="mistral">Mistral AI</option>
+              <option value="huggingface">HuggingFace</option>
+              <option value="stability">Stability AI</option>
+              <option value="eleutherai">EleutherAI</option>
+              <option value="databricks">Databricks (Mosaic)</option>
+              <option value="tii">Technology Innovation Institute (Falcon)</option>
+              <option value="bigscience">BigScience (BLOOM)</option>
+              <option value="cerebras">Cerebras</option>
+              <option value="community">Community/Independent</option>
+              <option value="other">Other</option>
+            </select>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="ossModel">Model/Library Name *</Label>
+            <Input
+              id="ossModel"
+              value={data?.model_name || ''}
+              onChange={(e) => handleFieldChange('model_name', e.target.value)}
+              placeholder="e.g., Llama 3, Mistral 7B, BERT, GPT-J"
+              className="w-full"
+            />
+            <p className="text-xs text-primary-600">
+              The name of the open source model or library
+            </p>
+          </div>
+        </>
+      )}
+
       {/* Conditional: COTS Product */}
       {modelOrigin === 'cots' && (
         <>
