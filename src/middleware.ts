@@ -3,7 +3,7 @@ import type { NextRequest } from 'next/server'
 
 export function middleware(request: NextRequest) {
   // Enable maintenance mode
-  const isMaintenanceMode = true
+  const isMaintenanceMode = false
 
   // Allow access to maintenance page itself
   if (request.nextUrl.pathname === '/maintenance') {
