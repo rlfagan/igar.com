@@ -69,10 +69,18 @@ export default function PoliciesAdminPage() {
                 Manage intake form templates for different industries and organizations
               </p>
             </div>
-            <Button onClick={() => setShowCreateModal(true)}>
-              <Plus className="w-4 h-4 mr-2" />
-              New Policy
-            </Button>
+            <div className="flex gap-3">
+              <Button variant="outline" asChild>
+                <Link href="/admin/policies/create">
+                  <Plus className="w-4 h-4 mr-2" />
+                  Create AI Policy
+                </Link>
+              </Button>
+              <Button onClick={() => setShowCreateModal(true)}>
+                <Plus className="w-4 h-4 mr-2" />
+                New Form Policy
+              </Button>
+            </div>
           </div>
         </div>
 
