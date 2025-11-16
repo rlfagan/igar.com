@@ -18,7 +18,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { aiCatalog, CatalogItem, searchCatalog } from '@/lib/ai-catalog'
-import { Check, Plus, X, Search, ArrowLeft } from '@phosphor-icons/react'
+import { Check, Plus, X, MagnifyingGlass, ArrowLeft } from '@phosphor-icons/react'
 import Link from 'next/link'
 
 interface PolicyLists {
@@ -292,7 +292,7 @@ export default function CreatePolicyPage() {
                 <CardContent>
                   <div className="mb-4">
                     <div className="relative">
-                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                      <MagnifyingGlass className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
                       <Input
                         placeholder="Search catalog..."
                         value={searchQuery}
