@@ -281,6 +281,7 @@ export default function CreatePolicyPage() {
         datasets: policyLists.review.filter(i => i.category === 'dataset').map(i => i.id),
         use_cases: policyLists.review.filter(i => i.category === 'use_case').map(i => i.id),
       },
+      use_case_restrictions: useCaseRestrictions,
     }
 
     setSaving(true)
