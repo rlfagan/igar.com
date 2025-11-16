@@ -62,6 +62,14 @@ export const aiCatalog: CatalogItem[] = [
   { id: 'credit-eligibility', name: 'Credit Eligibility', category: 'use_case', tags: ['finance', 'high-risk', 'ecoa'] },
   { id: 'aml-bsa', name: 'AML/BSA Compliance', category: 'use_case', tags: ['finance', 'compliance'] },
   { id: 'hr-screening', name: 'HR Candidate Screening', category: 'use_case', tags: ['hr', 'high-risk'] },
+  { id: 'customer-service', name: 'Customer Service / Support', category: 'use_case', tags: ['customer', 'low-risk'] },
+  { id: 'internal-productivity', name: 'Internal Productivity Tools', category: 'use_case', tags: ['internal', 'low-risk'] },
+  { id: 'code-generation', name: 'Code Generation / Development', category: 'use_case', tags: ['developer', 'medium-risk'] },
+  { id: 'content-creation', name: 'Content Creation / Marketing', category: 'use_case', tags: ['marketing', 'low-risk'] },
+  { id: 'data-analysis', name: 'Data Analysis / BI', category: 'use_case', tags: ['analytics', 'medium-risk'] },
+  { id: 'research', name: 'Research & Development', category: 'use_case', tags: ['research', 'medium-risk'] },
+  { id: 'legal-review', name: 'Legal Document Review', category: 'use_case', tags: ['legal', 'high-risk'] },
+  { id: 'risk-assessment', name: 'Risk Assessment', category: 'use_case', tags: ['risk', 'high-risk'] },
   { id: 'biometric-identification', name: 'Biometric Identification', category: 'use_case', tags: ['biometric', 'prohibited'] },
   { id: 'autonomous-medical-diagnosis', name: 'Autonomous Medical Diagnosis', category: 'use_case', tags: ['medical', 'prohibited'] },
   { id: 'political-profiling', name: 'Political Profiling', category: 'use_case', tags: ['political', 'prohibited'] },
@@ -70,6 +78,10 @@ export const aiCatalog: CatalogItem[] = [
 
 export const getCatalogByCategory = (category: CatalogItem['category']) => {
   return aiCatalog.filter(item => item.category === category)
+}
+
+export const getUseCases = () => {
+  return aiCatalog.filter(item => item.category === 'use_case')
 }
 
 export const searchCatalog = (query: string) => {
