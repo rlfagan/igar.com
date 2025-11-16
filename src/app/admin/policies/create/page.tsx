@@ -19,7 +19,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
-import { aiCatalog as aiCatalogFallback, CatalogItem, searchCatalog, fetchAICatalog } from '@/lib/ai-catalog'
+import { aiCatalog as aiCatalogFallback, CatalogItem, searchCatalog, fetchAICatalog, getUseCases } from '@/lib/ai-catalog'
 import { Check, Plus, X, MagnifyingGlass, ArrowLeft } from '@phosphor-icons/react'
 import Link from 'next/link'
 
@@ -27,6 +27,13 @@ interface PolicyLists {
   approved: CatalogItem[]
   denied: CatalogItem[]
   review: CatalogItem[]
+}
+
+interface UseCaseRestriction {
+  itemId: string
+  mode: 'all' | 'whitelist' | 'blacklist'
+  allowedUseCases: string[]
+  deniedUseCases: string[]
 }
 
 export default function CreatePolicyPage() {
@@ -44,6 +51,10 @@ export default function CreatePolicyPage() {
     denied: [],
     review: [],
   })
+
+  const [useCaseRestrictions, setUseCaseRestrictions] = useState<UseCaseRestriction[]>([])
+  const [showRestrictionModal, setShowRestrictionModal] = useState(false)
+  const [pendingApproval, setPendingApproval] = useState<CatalogItem | null>(null)
 
   // Fetch catalog from database on mount
   useEffect(() => {
@@ -180,6 +191,14 @@ export default function CreatePolicyPage() {
       return
     }
 
+    // If dropping into "approved" and it's a model/tool/oss, show restriction modal
+    if (targetList === 'approved' && (item.category === 'model' || item.category === 'tool' || item.category === 'oss')) {
+      setPendingApproval(item)
+      setShowRestrictionModal(true)
+      setActiveId(null)
+      return
+    }
+
     // Remove from all lists first
     const newLists = {
       approved: policyLists.approved.filter(i => i.id !== itemId),
@@ -194,6 +213,36 @@ export default function CreatePolicyPage() {
 
     setPolicyLists(newLists)
     setActiveId(null)
+  }
+
+  const handleApproveWithRestrictions = (mode: 'all' | 'whitelist' | 'blacklist', selectedUseCases: string[]) => {
+    if (!pendingApproval) return
+
+    // Remove from all lists first
+    const newLists = {
+      approved: policyLists.approved.filter(i => i.id !== pendingApproval.id),
+      denied: policyLists.denied.filter(i => i.id !== pendingApproval.id),
+      review: policyLists.review.filter(i => i.id !== pendingApproval.id),
+    }
+
+    // Add to approved
+    newLists.approved = [...newLists.approved, pendingApproval]
+    setPolicyLists(newLists)
+
+    // Store use case restrictions
+    const newRestrictions = useCaseRestrictions.filter(r => r.itemId !== pendingApproval.id)
+    if (mode !== 'all') {
+      newRestrictions.push({
+        itemId: pendingApproval.id,
+        mode,
+        allowedUseCases: mode === 'whitelist' ? selectedUseCases : [],
+        deniedUseCases: mode === 'blacklist' ? selectedUseCases : [],
+      })
+    }
+    setUseCaseRestrictions(newRestrictions)
+
+    setShowRestrictionModal(false)
+    setPendingApproval(null)
   }
 
   const removeFromList = (listName: keyof PolicyLists, itemId: string) => {
@@ -484,6 +533,181 @@ export default function CreatePolicyPage() {
           <Button variant="outline" size="lg" asChild>
             <Link href="/admin/policies">Cancel</Link>
           </Button>
+        </div>
+      </div>
+
+      {/* Use Case Restriction Modal */}
+      {showRestrictionModal && pendingApproval && (
+        <UseCaseRestrictionModal
+          item={pendingApproval}
+          useCases={getUseCases(aiCatalog)}
+          onConfirm={handleApproveWithRestrictions}
+          onCancel={() => {
+            setShowRestrictionModal(false)
+            setPendingApproval(null)
+          }}
+        />
+      )}
+    </div>
+  )
+}
+
+// Use Case Restriction Modal Component
+interface UseCaseRestrictionModalProps {
+  item: CatalogItem
+  useCases: CatalogItem[]
+  onConfirm: (mode: 'all' | 'whitelist' | 'blacklist', selectedUseCases: string[]) => void
+  onCancel: () => void
+}
+
+function UseCaseRestrictionModal({ item, useCases, onConfirm, onCancel }: UseCaseRestrictionModalProps) {
+  const [mode, setMode] = useState<'all' | 'whitelist' | 'blacklist'>('all')
+  const [selectedUseCases, setSelectedUseCases] = useState<Set<string>>(new Set())
+
+  const toggleUseCase = (id: string) => {
+    const newSelected = new Set(selectedUseCases)
+    if (newSelected.has(id)) {
+      newSelected.delete(id)
+    } else {
+      newSelected.add(id)
+    }
+    setSelectedUseCases(newSelected)
+  }
+
+  const handleConfirm = () => {
+    onConfirm(mode, Array.from(selectedUseCases))
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+        <div className="p-6">
+          <h2 className="text-2xl font-bold mb-2">Use Case Restrictions</h2>
+          <p className="text-gray-600 mb-1">
+            Approving: <span className="font-semibold">{item.name}</span>
+          </p>
+          <p className="text-sm text-gray-500 mb-6">
+            Set restrictions on which use cases this {item.category} can be used for
+          </p>
+
+          {/* Mode Selection */}
+          <div className="space-y-3 mb-6">
+            <button
+              onClick={() => setMode('all')}
+              className={`w-full p-4 border-2 rounded-lg text-left transition-all ${
+                mode === 'all'
+                  ? 'border-indigo-600 bg-indigo-50'
+                  : 'border-gray-200 hover:border-gray-300'
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
+                  mode === 'all' ? 'border-indigo-600 bg-indigo-600' : 'border-gray-300'
+                }`}>
+                  {mode === 'all' && <div className="w-2 h-2 bg-white rounded-full" />}
+                </div>
+                <div>
+                  <div className="font-medium">All Use Cases</div>
+                  <div className="text-sm text-gray-600">No restrictions - can be used for any purpose</div>
+                </div>
+              </div>
+            </button>
+
+            <button
+              onClick={() => setMode('whitelist')}
+              className={`w-full p-4 border-2 rounded-lg text-left transition-all ${
+                mode === 'whitelist'
+                  ? 'border-indigo-600 bg-indigo-50'
+                  : 'border-gray-200 hover:border-gray-300'
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
+                  mode === 'whitelist' ? 'border-indigo-600 bg-indigo-600' : 'border-gray-300'
+                }`}>
+                  {mode === 'whitelist' && <div className="w-2 h-2 bg-white rounded-full" />}
+                </div>
+                <div>
+                  <div className="font-medium">Specific Use Cases Only (Whitelist)</div>
+                  <div className="text-sm text-gray-600">Can only be used for selected use cases</div>
+                </div>
+              </div>
+            </button>
+
+            <button
+              onClick={() => setMode('blacklist')}
+              className={`w-full p-4 border-2 rounded-lg text-left transition-all ${
+                mode === 'blacklist'
+                  ? 'border-indigo-600 bg-indigo-50'
+                  : 'border-gray-200 hover:border-gray-300'
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
+                  mode === 'blacklist' ? 'border-indigo-600 bg-indigo-600' : 'border-gray-300'
+                }`}>
+                  {mode === 'blacklist' && <div className="w-2 h-2 bg-white rounded-full" />}
+                </div>
+                <div>
+                  <div className="font-medium">All Except Selected (Blacklist)</div>
+                  <div className="text-sm text-gray-600">Can be used for all use cases except selected ones</div>
+                </div>
+              </div>
+            </button>
+          </div>
+
+          {/* Use Case Selection */}
+          {mode !== 'all' && (
+            <div className="space-y-2 mb-6">
+              <label className="block text-sm font-medium text-gray-700 mb-3">
+                {mode === 'whitelist' ? 'Select Allowed Use Cases' : 'Select Prohibited Use Cases'}
+              </label>
+              <div className="max-h-64 overflow-y-auto border border-gray-200 rounded-lg p-3 space-y-2">
+                {useCases.map((useCase) => (
+                  <label
+                    key={useCase.id}
+                    className="flex items-center gap-3 p-2 hover:bg-gray-50 rounded cursor-pointer"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={selectedUseCases.has(useCase.id)}
+                      onChange={() => toggleUseCase(useCase.id)}
+                      className="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+                    />
+                    <div className="flex-1">
+                      <div className="font-medium text-sm">{useCase.name}</div>
+                      {useCase.tags && useCase.tags.length > 0 && (
+                        <div className="flex gap-1 mt-1">
+                          {useCase.tags.map((tag, idx) => (
+                            <span key={idx} className="text-xs px-2 py-0.5 bg-gray-100 rounded">
+                              {tag}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </label>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Actions */}
+          <div className="flex justify-end gap-3 mt-6 pt-6 border-t">
+            <button
+              onClick={onCancel}
+              className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleConfirm}
+              disabled={mode !== 'all' && selectedUseCases.size === 0}
+              className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Approve with Restrictions
+            </button>
+          </div>
         </div>
       </div>
     </div>
