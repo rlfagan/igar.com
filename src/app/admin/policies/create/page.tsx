@@ -47,6 +47,85 @@ export default function CreatePolicyPage() {
     })
   )
 
+  // Load default/template policy
+  const loadDefaultPolicy = () => {
+    const defaultItemIds = {
+      approved: [
+        "openai:gpt-4.1",
+        "openai:gpt-4.1-mini",
+        "anthropic:claude-3.5-sonnet",
+        "anthropic:claude-3.5-haiku",
+        "google:gemini-1.5-pro",
+        "aws:bedrock-titan-text-premier",
+        "github:copilot-enterprise",
+        "openai:enterprise",
+        "perplexity:enterprise",
+        "microsoft:365-copilot-enterprise",
+        "huggingface/transformers",
+        "huggingface/diffusers",
+        "langchain",
+        "pytorch",
+        "tensorflow",
+        "hf:financial-sentiment-verified",
+        "hf:ms-marco-v1",
+        "hf:wiki-en-cleaned",
+        "openclimate:climate-risk-dataset-v2",
+      ],
+      denied: [
+        "llama-uncensored-*",
+        "wizardlm-uncensored-*",
+        "gpt4free-*",
+        "stable-diffusion-raw-*",
+        "characterai:*",
+        "midjourney:*",
+        "replika:*",
+        "any:GPL-3.0",
+        "hf:model:no-license",
+        "hf:dataset:no-docs",
+        "biometric-identification",
+        "autonomous-medical-diagnosis",
+        "political-profiling",
+        "unexplainable-credit-decisions",
+      ],
+      review: [
+        "mistral:mixtral-8x7b",
+        "meta:llama-3-70b",
+        "meta:llama-3-8b",
+        "cohere:command",
+        "huggingface:inference-api",
+        "local-inference",
+        "llama.cpp",
+        "vllm",
+        "customer-data-derived",
+        "user-uploaded",
+        "fraud-detection",
+        "credit-eligibility",
+        "aml-bsa",
+        "hr-screening",
+      ],
+    }
+
+    const newLists: PolicyLists = {
+      approved: [],
+      denied: [],
+      review: [],
+    }
+
+    // Map IDs to catalog items
+    Object.entries(defaultItemIds).forEach(([listName, ids]) => {
+      ids.forEach((id) => {
+        const item = aiCatalog.find((i) => i.id === id)
+        if (item) {
+          newLists[listName as keyof PolicyLists].push(item)
+        }
+      })
+    })
+
+    setPolicyLists(newLists)
+    setPolicyName('Enterprise AI Usage Policy 2025')
+    setPolicyDescription('Default governance policy for approved, denied, and review-required AI resources')
+  }
+
   const filteredCatalog = searchQuery
     ? searchCatalog(searchQuery)
     : aiCatalog
@@ -158,8 +237,15 @@ export default function CreatePolicyPage() {
             <ArrowLeft weight="bold" className="w-4 h-4" />
             Back to Policies
           </Link>
-          <h1 className="text-3xl font-bold text-primary-950">Create AI Governance Policy</h1>
-          <p className="text-primary-600 mt-2">Drag and drop items from the catalog to build your policy</p>
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-3xl font-bold text-primary-950">Create AI Governance Policy</h1>
+              <p className="text-primary-600 mt-2">Drag and drop items from the catalog to build your policy</p>
+            </div>
+            <Button variant="outline" onClick={loadDefaultPolicy}>
+              Load Default Policy
+            </Button>
+          </div>
         </div>
 
         {/* Policy Info */}
