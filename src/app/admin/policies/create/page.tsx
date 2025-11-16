@@ -314,15 +314,30 @@ export default function CreatePolicyPage() {
       department_ids: isGlobal ? [] : selectedDepartments,
     }
 
+    console.log('Saving policy:', policy)
     setSaving(true)
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/ai-policies`, {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://igarcom-backend-production.up.railway.app'
+      console.log('API URL:', apiUrl)
+
+      const response = await fetch(`${apiUrl}/api/ai-policies`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(policy),
       })
 
-      const data = await response.json()
+      console.log('Response status:', response.status)
+      const responseText = await response.text()
+      console.log('Response text:', responseText)
+
+      let data
+      try {
+        data = JSON.parse(responseText)
+      } catch (e) {
+        console.error('Failed to parse JSON:', e)
+        alert(`Failed to save policy: Invalid response from server`)
+        return
+      }
 
       if (data.success) {
         alert('Policy saved successfully!')
@@ -333,7 +348,7 @@ export default function CreatePolicyPage() {
       }
     } catch (error) {
       console.error('Error saving policy:', error)
-      alert('Failed to save policy. Please try again.')
+      alert(`Failed to save policy: ${error}`)
     } finally {
       setSaving(false)
     }
@@ -864,9 +879,12 @@ interface DropZoneProps {
   onRemove: (id: string) => void
   getCategoryColor: (category: string) => string
   color: 'green' | 'yellow' | 'red'
+  useCaseRestrictions?: UseCaseRestriction[]
+  isGlobal?: boolean
+  departmentCount?: number
 }
 
-function DropZone({ id, title, description, items, onRemove, getCategoryColor, color }: DropZoneProps) {
+function DropZone({ id, title, description, items, onRemove, getCategoryColor, color, useCaseRestrictions = [], isGlobal = true, departmentCount = 0 }: DropZoneProps) {
   const { setNodeRef, isOver } = useDroppable({ id })
 
   const colorClasses = {
