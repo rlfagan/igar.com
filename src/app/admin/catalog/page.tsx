@@ -3,6 +3,8 @@
 import { useState, useEffect } from 'react'
 import { ArrowLeft, Plus, Search, Edit2, Trash2, Check, X } from 'lucide-react'
 import Link from 'next/link'
+import { MainNavigation } from '@/components/layout/main-navigation'
+import { AdminNavigation } from '@/components/layout/admin-navigation'
 
 interface CatalogItem {
   id: number
@@ -197,17 +199,14 @@ export default function CatalogManagementPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-8">
-      <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="mb-8">
-          <Link
-            href="/admin"
-            className="inline-flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-4"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            Back to Admin
-          </Link>
+    <>
+      <MainNavigation />
+      <div className="flex">
+        <AdminNavigation className="w-64 min-h-screen" />
+        <div className="flex-1 bg-gray-50 p-8">
+          <div className="max-w-7xl mx-auto">
+            {/* Header */}
+            <div className="mb-8">
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-3xl font-bold text-gray-900">AI Catalog Management</h1>
@@ -570,6 +569,9 @@ export default function CatalogManagementPage() {
           </div>
         </div>
       )}
-    </div>
+          </div>
+        </div>
+      </div>
+    </>
   )
 }

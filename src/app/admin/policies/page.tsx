@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { MainNavigation } from '@/components/layout/main-navigation'
+import { AdminNavigation } from '@/components/layout/admin-navigation'
 import { Settings, Plus, Edit, Eye, Copy, Trash2, Check } from 'lucide-react'
 
 export default function PoliciesAdminPage() {
@@ -60,8 +61,10 @@ export default function PoliciesAdminPage() {
   return (
     <>
       <MainNavigation />
-      <main className="min-h-screen bg-gray-50 py-8">
-      <div className="container mx-auto px-4 max-w-7xl">
+      <div className="flex">
+        <AdminNavigation className="w-64 min-h-screen" />
+        <main className="flex-1 bg-gray-50 py-8">
+          <div className="container mx-auto px-4 max-w-7xl">
         {/* Header */}
         <div className="mb-8">
           <div className="flex justify-between items-center">
@@ -138,7 +141,8 @@ export default function PoliciesAdminPage() {
           />
         )}
       </div>
-    </main>
+        </main>
+      </div>
     </>
   )
 }
