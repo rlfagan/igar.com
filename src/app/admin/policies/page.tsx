@@ -13,8 +13,10 @@ export default function PoliciesAdminPage() {
   const [policies, setPolicies] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [showCreateModal, setShowCreateModal] = useState(false)
+  const [mounted, setMounted] = useState(false)
 
   useEffect(() => {
+    setMounted(true)
     fetchPolicies()
   }, [])
 
@@ -125,8 +127,8 @@ export default function PoliciesAdminPage() {
           ))}
         </div>
 
-        {/* Create Policy Modal */}
-        {showCreateModal && (
+        {/* Create Policy Modal - Only render on client side to avoid hydration errors */}
+        {mounted && showCreateModal && (
           <CreatePolicyModal
             onClose={() => setShowCreateModal(false)}
             onSuccess={() => {
@@ -159,11 +161,15 @@ function CreatePolicyModal({ onClose, onSuccess }: { onClose: () => void; onSucc
       try {
         const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/policies`)
         const data = await response.json()
-        if (data.success) {
+        if (data.success && data.policies) {
           setTemplatePolicies(data.policies)
+        } else {
+          // No policies available yet - that's fine, user can create the first one
+          setTemplatePolicies([])
         }
       } catch (error) {
         console.error('Failed to fetch template policies:', error)
+        setTemplatePolicies([])
       }
     }
     fetchTemplates()
