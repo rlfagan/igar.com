@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { MainNavigation } from '@/components/layout/main-navigation'
 import { AdminNavigation } from '@/components/layout/admin-navigation'
-import { Settings, Plus, Edit, Eye, Copy, Trash2, Check } from 'lucide-react'
+import { Settings, Plus, Edit, Eye, Copy, Trash2, Check, Shield } from 'lucide-react'
 
 export default function PoliciesAdminPage() {
   const [policies, setPolicies] = useState<any[]>([])
@@ -108,14 +108,20 @@ export default function PoliciesAdminPage() {
                 <CardDescription>{policy.description}</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="flex gap-2">
-                  <Link href={`/admin/policies/${policy.id}`} className="flex-1">
+                <div className="grid grid-cols-3 gap-2">
+                  <Link href={`/admin/policies/${policy.id}`}>
                     <Button variant="outline" className="w-full" size="sm">
                       <Edit className="w-4 h-4 mr-2" />
                       Edit
                     </Button>
                   </Link>
-                  <Link href={`/admin/policies/${policy.id}/preview`} className="flex-1">
+                  <Link href={`/admin/policies/${policy.id}/rules`}>
+                    <Button variant="outline" className="w-full" size="sm">
+                      <Shield className="w-4 h-4 mr-2" />
+                      Rules
+                    </Button>
+                  </Link>
+                  <Link href={`/admin/policies/${policy.id}/preview`}>
                     <Button variant="outline" className="w-full" size="sm">
                       <Eye className="w-4 h-4 mr-2" />
                       Preview
