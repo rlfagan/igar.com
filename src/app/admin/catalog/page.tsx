@@ -205,9 +205,16 @@ export default function CatalogManagementPage() {
         <AdminNavigation className="w-64 min-h-screen" />
         <div className="flex-1 bg-gray-50 p-8">
           <div className="max-w-7xl mx-auto">
-            {/* Header */}
-            <div className="mb-8">
-              <div className="flex items-center justify-between">
+        {/* Header */}
+        <div className="mb-8">
+          <Link
+            href="/admin"
+            className="inline-flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-4"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            Back to Admin
+          </Link>
+          <div className="flex items-center justify-between">
             <div>
               <h1 className="text-3xl font-bold text-gray-900">AI Catalog Management</h1>
               <p className="text-gray-600 mt-2">
