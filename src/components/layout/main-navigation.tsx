@@ -51,7 +51,7 @@ export function MainNavigation({ userName = 'User', userRole = 'admin' }: MainNa
 
   // Add admin link if user is admin
   if (userRole === 'admin' || user?.role === 'admin') {
-    navItems.push({ href: '/admin/policies', label: 'Admin', icon: <Gear weight="fill" /> })
+    navItems.push({ href: '/admin', label: 'Admin', icon: <Gear weight="fill" /> })
   }
 
   const isActive = (href: string) => {
@@ -133,7 +133,7 @@ export function MainNavigation({ userName = 'User', userRole = 'admin' }: MainNa
                       Profile Settings
                     </button>
                   </Link>
-                  <Link href="/admin/policies" onClick={() => setShowUserMenu(false)}>
+                  <Link href="/admin" onClick={() => setShowUserMenu(false)}>
                     <button className="w-full px-4 py-2 text-left text-sm text-primary-700 hover:bg-neutral-50 flex items-center gap-2">
                       <Gear className="w-4 h-4" />
                       Admin Settings
